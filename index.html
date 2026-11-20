@@ -25,11 +25,14 @@
     margin:0;
     font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans Myanmar", "Pyidaungsu", sans-serif;
     color:var(--ink);
-    /* Scene painted on body itself so backdrop-filter glass samples it */
+    /* Scene painted on body itself so backdrop-filter glass samples it.
+       Layered glows + vignette give the raised panels depth to sit above. */
     background:
-      radial-gradient(120% 60% at 85% -5%, rgba(190,198,210,0.28) 0%, rgba(190,198,210,0) 55%),
-      radial-gradient(100% 55% at 5% 105%, rgba(140,150,165,0.22) 0%, rgba(140,150,165,0) 55%),
-      linear-gradient(165deg, #3a3f46 0%, #23262b 45%, #141619 100%);
+      radial-gradient(130% 55% at 50% -10%, rgba(216,223,233,0.34) 0%, rgba(216,223,233,0) 55%),
+      radial-gradient(90% 45% at 88% 30%, rgba(170,180,196,0.16) 0%, rgba(170,180,196,0) 60%),
+      radial-gradient(100% 50% at 6% 108%, rgba(150,160,175,0.24) 0%, rgba(150,160,175,0) 55%),
+      radial-gradient(150% 120% at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.36) 100%),
+      linear-gradient(168deg, #444a52 0%, #26292f 42%, #0f1114 100%);
     background-attachment: fixed;
     display:flex; flex-direction:column;
     overflow:hidden;
@@ -37,11 +40,15 @@
   body.locked{ overflow:hidden; }
 
   .glass{
-    background:var(--glass);
-    border:1px solid var(--stroke);
-    backdrop-filter: blur(18px) saturate(1.2);
-    -webkit-backdrop-filter: blur(18px) saturate(1.2);
-    box-shadow: 0 8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12);
+    background: linear-gradient(180deg, rgba(230,234,240,0.17), rgba(150,158,170,0.09) 48%, rgba(66,72,82,0.14));
+    border:1px solid rgba(255,255,255,0.22);
+    backdrop-filter: blur(18px) saturate(1.25);
+    -webkit-backdrop-filter: blur(18px) saturate(1.25);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.38),
+      inset 0 -1px 0 rgba(0,0,0,0.30),
+      0 3px 8px rgba(0,0,0,0.35),
+      0 18px 38px rgba(0,0,0,0.50);
   }
 
   header{
@@ -61,46 +68,74 @@
   .icon-btn{
     border:none; background:none; box-shadow:none; appearance:none; -webkit-appearance:none;
     color:var(--ink); padding:12px; font-size:24px; line-height:1; cursor:pointer;
+    /* Bare glyph, lifted with layered light-from-above / dark-below shadows */
+    text-shadow: 0 1px 0 rgba(255,255,255,0.30), 0 4px 8px rgba(0,0,0,0.55), 0 12px 22px rgba(0,0,0,0.45);
+    transition: transform .28s cubic-bezier(0.34, 1.4, 0.64, 1), opacity .2s ease;
   }
-  .icon-btn:active{ opacity:0.6; }
+  .icon-btn:active{ opacity:0.6; transform:scale(0.92); }
 
   #errorBar{
     display:none; margin:0 14px 8px; padding:10px 12px; border-radius:12px;
-    background:var(--danger-bg); border:1px solid rgba(255,140,140,0.5);
+    background:linear-gradient(180deg, rgba(155,48,48,0.50), rgba(105,25,25,0.52));
+    border:1px solid rgba(255,140,140,0.5);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 3px 8px rgba(0,0,0,0.35), 0 12px 26px rgba(0,0,0,0.40);
     color:#ffd9d9; font-size:13px; line-height:1.45; word-break:break-word;
   }
   #errorBar.show{ display:block; }
-
-  .modebar{
-    display:flex; margin:2px 14px 8px; border-radius:12px; overflow:hidden;
-    border:1px solid var(--stroke); background:var(--glass);
-    backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10);
-  }
-  .modebar button{
-    flex:1 1 0; padding:9px 0; background:transparent; border:0; color:var(--ink-dim);
-    font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;
-  }
-  .modebar button.sel{ background:var(--glass-strong); color:var(--ink); }
 
   .pairbar{
     display:flex; align-items:stretch; gap:8px; margin:2px 14px 10px;
   }
   .lang-btn{
-    flex:1 1 0; border-radius:16px; padding:10px 8px; text-align:center; cursor:pointer;
-    color:var(--ink); border:1px solid var(--stroke); background:var(--glass);
-    backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10);
+    flex:1 1 0; border-radius:14px; padding:6px 8px; text-align:center; cursor:pointer;
+    color:var(--ink); border:1px solid rgba(255,255,255,0.24);
+    background: linear-gradient(180deg, rgba(233,237,243,0.20), rgba(165,173,185,0.11) 46%, rgba(88,95,106,0.15));
+    backdrop-filter: blur(18px) saturate(1.25); -webkit-backdrop-filter: blur(18px) saturate(1.25);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.40),
+      inset 0 -2px 4px rgba(0,0,0,0.28),
+      0 2px 5px rgba(0,0,0,0.35),
+      0 10px 22px rgba(0,0,0,0.42);
+    transition:
+      transform .28s cubic-bezier(0.34, 1.4, 0.64, 1),
+      box-shadow .28s cubic-bezier(0.34, 1.4, 0.64, 1),
+      background .28s ease;
   }
-  .lang-btn .cap{ display:block; font-size:10px; color:var(--ink-faint); letter-spacing:1px; margin-bottom:2px; }
-  .lang-btn .nm{ display:block; font-size:16px; font-weight:700; }
+  .lang-btn:active{
+    /* Sofa-sink: surface sinks in, face darkens, outer shadow collapses flush */
+    transform: scale(0.96) translateY(2px);
+    background: linear-gradient(180deg, rgba(198,205,215,0.20), rgba(141,149,161,0.13) 46%, rgba(72,78,88,0.19));
+    box-shadow:
+      inset 0 3px 9px rgba(0,0,0,0.52),
+      inset 0 1px 0 rgba(0,0,0,0.25),
+      0 1px 2px rgba(0,0,0,0.28);
+  }
+  .lang-btn .cap{ display:block; font-size:10px; color:var(--ink-faint); letter-spacing:1px; margin-bottom:1px; }
+  .lang-btn .nm{ display:block; font-size:15px; font-weight:700; }
   .lang-btn .en{ display:block; font-size:11px; color:var(--ink-dim); margin-top:1px; }
   .swap-btn{
-    flex:0 0 46px; border-radius:16px; border:1px solid var(--stroke);
-    background:var(--glass-strong); color:var(--ink); font-size:19px; cursor:pointer;
-    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    flex:0 0 40px; border-radius:14px; border:1px solid rgba(255,255,255,0.24);
+    background: linear-gradient(180deg, rgba(233,237,243,0.22), rgba(165,173,185,0.12) 46%, rgba(88,95,106,0.16));
+    color:var(--ink); font-size:17px; cursor:pointer;
+    backdrop-filter: blur(18px) saturate(1.25); -webkit-backdrop-filter: blur(18px) saturate(1.25);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.40),
+      inset 0 -2px 4px rgba(0,0,0,0.28),
+      0 2px 5px rgba(0,0,0,0.35),
+      0 10px 22px rgba(0,0,0,0.42);
+    transition:
+      transform .28s cubic-bezier(0.34, 1.4, 0.64, 1),
+      box-shadow .28s cubic-bezier(0.34, 1.4, 0.64, 1),
+      background .28s ease;
   }
-  .swap-btn:active{ transform:scale(0.95); }
+  .swap-btn:active{
+    transform: scale(0.96) translateY(2px);
+    background: linear-gradient(180deg, rgba(198,205,215,0.22), rgba(141,149,161,0.14) 46%, rgba(72,78,88,0.20));
+    box-shadow:
+      inset 0 3px 9px rgba(0,0,0,0.52),
+      inset 0 1px 0 rgba(0,0,0,0.25),
+      0 1px 2px rgba(0,0,0,0.28);
+  }
 
   .stage{ margin:0 14px; border-radius:18px; padding:10px 12px 6px; }
   #wave{ width:100%; height:56px; display:block; }
@@ -131,12 +166,24 @@
   .bubble .lab{ font-size:10px; letter-spacing:0.6px; color:var(--ink-faint); margin-bottom:3px; text-transform:uppercase; }
   .bubble .txt{ font-size:15px; line-height:1.55; word-break:break-word; }
   .bubble.heard{
-    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10);
+    background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.045) 55%, rgba(0,0,0,0.06));
+    border:1px solid rgba(255,255,255,0.13);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.22),
+      inset 0 -1px 0 rgba(0,0,0,0.22),
+      0 2px 5px rgba(0,0,0,0.30),
+      0 10px 20px rgba(0,0,0,0.35);
     margin-right:auto; border-bottom-left-radius:6px;
   }
   .bubble.spoken{
-    background:var(--glass-strong); border:1px solid var(--stroke);
-    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    background: linear-gradient(180deg, rgba(233,237,243,0.20), rgba(165,173,185,0.12) 48%, rgba(88,95,106,0.15));
+    border:1px solid rgba(255,255,255,0.22);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.36),
+      inset 0 -1px 0 rgba(0,0,0,0.28),
+      0 2px 5px rgba(0,0,0,0.32),
+      0 12px 24px rgba(0,0,0,0.42);
+    backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
     margin-left:auto; margin-top:5px; border-bottom-right-radius:6px;
   }
   .bubble.spoken .txt{ font-size:16px; font-weight:600; }
@@ -147,16 +194,21 @@
   }
   #micBtn{
     background:none; border:none; box-shadow:none; appearance:none; -webkit-appearance:none;
-    color:var(--ink); font-size:64px; line-height:1; cursor:pointer;
-    padding:24px;
+    color:var(--ink); font-size:46px; line-height:1; cursor:pointer;
+    padding:18px;
     display:flex; align-items:center; justify-content:center;
-    transition: transform .12s ease, color .2s ease, opacity .2s ease;
+    /* Bare glyph — depth comes from layered drop shadows only (light above, dark below) */
+    filter:
+      drop-shadow(0 1px 0 rgba(255,255,255,0.35))
+      drop-shadow(0 6px 10px rgba(0,0,0,0.55))
+      drop-shadow(0 18px 28px rgba(0,0,0,0.45));
+    transition: transform .28s cubic-bezier(0.34, 1.4, 0.64, 1), color .2s ease, opacity .2s ease;
   }
-  #micBtn:active{ transform:scale(0.96); }
+  #micBtn:active{ transform:scale(0.92); }
   #micBtn.live{ color:#ff5f5f; }
   #micBtn.live + #micLabel{ color:#ff5f5f; }
   #micBtn.busy{ opacity:0.75; }
-  #micLabel{ font-size:14px; font-weight:700; }
+  #micLabel{ font-size:13px; font-weight:700; text-shadow: 0 1px 0 rgba(255,255,255,0.18), 0 3px 8px rgba(0,0,0,0.60); }
 
   /* Bottom sheets */
   #overlay{
@@ -168,41 +220,101 @@
     position:fixed; left:0; right:0; bottom:0; z-index:50;
     max-height:82vh; display:flex; flex-direction:column;
     border-radius:22px 22px 0 0; padding:10px 16px calc(16px + env(safe-area-inset-bottom));
-    background:rgba(38,41,47,0.82);
-    border-top:1px solid var(--stroke);
+    background: linear-gradient(180deg, rgba(76,81,90,0.88), rgba(40,43,49,0.90) 30%, rgba(25,27,31,0.94));
+    border-top:1px solid rgba(255,255,255,0.24);
     backdrop-filter: blur(26px) saturate(1.3); -webkit-backdrop-filter: blur(26px) saturate(1.3);
-    box-shadow: 0 -14px 40px rgba(0,0,0,0.5);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.30),
+      0 -6px 18px rgba(0,0,0,0.45),
+      0 -24px 54px rgba(0,0,0,0.55);
     transform:translateY(105%); transition:transform .25s ease;
   }
   .sheet.show{ transform:translateY(0); }
-  .sheet .grab{ width:42px; height:4px; border-radius:2px; background:rgba(255,255,255,0.3); margin:2px auto 10px; }
+  .sheet .grab{
+    width:42px; height:4px; border-radius:2px; margin:2px auto 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.42), rgba(255,255,255,0.16));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 1px 2px rgba(0,0,0,0.40);
+  }
   .sheet h2{ margin:0 0 4px; font-size:16px; }
   .sheet .sub{ font-size:12px; color:var(--ink-dim); margin:0 0 10px; line-height:1.5; }
   .sheet .list{ overflow-y:auto; -webkit-overflow-scrolling:touch; }
   .row{
     display:flex; align-items:center; gap:10px; width:100%;
-    padding:12px 10px; border:0; border-bottom:1px solid rgba(255,255,255,0.07);
-    background:transparent; color:var(--ink); font-size:15px; text-align:left; cursor:pointer;
+    padding:9px 10px; border:0; border-bottom:1px solid rgba(255,255,255,0.07);
+    background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0) 60%, rgba(0,0,0,0.05));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
+    color:var(--ink); font-size:15px; text-align:left; cursor:pointer;
+    transition:
+      transform .28s cubic-bezier(0.34, 1.4, 0.64, 1),
+      box-shadow .28s cubic-bezier(0.34, 1.4, 0.64, 1),
+      background .28s ease;
+  }
+  .row:active{
+    transform: scale(0.96) translateY(2px);
+    background: linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.16) 60%, rgba(0,0,0,0.20));
+    box-shadow: inset 0 3px 9px rgba(0,0,0,0.52);
   }
   .row .en{ color:var(--ink-dim); font-size:12px; margin-left:auto; }
-  .row.sel{ background:rgba(255,255,255,0.08); border-radius:10px; }
+  .row .nmwrap{ display:flex; flex-direction:column; gap:1px; }
+  .row .note{ font-size:11px; color:var(--ink-dim); }
+  .row.sel{
+    background: linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0.06));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.20), 0 2px 6px rgba(0,0,0,0.30);
+    border-radius:10px;
+  }
   .row .tick{ color:var(--ok); font-size:14px; width:16px; }
   .field{ margin:10px 0; }
   .field label{ display:block; font-size:12px; color:var(--ink-dim); margin-bottom:5px; }
   .field input{
     width:100%; padding:11px 12px; border-radius:12px; font-size:14px;
     background:rgba(255,255,255,0.07); border:1px solid var(--stroke); color:var(--ink);
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.35), inset 0 -1px 0 rgba(255,255,255,0.06);
     outline:none;
   }
   .field input:focus{ border-color:rgba(255,255,255,0.55); }
   .field input.missing{ border-color:var(--danger); box-shadow:0 0 0 2px rgba(255,120,120,0.35); }
   .sheet .btnrow{ display:flex; gap:8px; margin-top:12px; }
   .btn{
-    flex:1; padding:12px; border-radius:12px; border:1px solid var(--stroke);
-    background:var(--glass-strong); color:var(--ink); font-size:14px; font-weight:700; cursor:pointer;
+    flex:1; padding:9px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.24);
+    background: linear-gradient(180deg, rgba(233,237,243,0.20), rgba(165,173,185,0.11) 46%, rgba(88,95,106,0.15));
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.38),
+      inset 0 -2px 4px rgba(0,0,0,0.26),
+      0 2px 5px rgba(0,0,0,0.32),
+      0 8px 18px rgba(0,0,0,0.38);
+    color:var(--ink); font-size:14px; font-weight:700; cursor:pointer;
+    transition:
+      transform .28s cubic-bezier(0.34, 1.4, 0.64, 1),
+      box-shadow .28s cubic-bezier(0.34, 1.4, 0.64, 1),
+      background .28s ease;
   }
-  .btn.primary{ background:linear-gradient(150deg,#f4f6f9,#aeb6c1); color:#14161a; border-color:rgba(255,255,255,0.4); }
-  .btn.danger{ background:rgba(120,30,30,0.4); color:#ffd9d9; }
+  .btn:active{
+    transform: scale(0.96) translateY(2px);
+    background: linear-gradient(180deg, rgba(198,205,215,0.20), rgba(141,149,161,0.13) 46%, rgba(72,78,88,0.19));
+    box-shadow:
+      inset 0 3px 9px rgba(0,0,0,0.52),
+      inset 0 1px 0 rgba(0,0,0,0.25),
+      0 1px 2px rgba(0,0,0,0.28);
+  }
+  .btn.primary:active{
+    background: linear-gradient(180deg, #e9edf2 0%, #bbc2cd 45%, #88919e 100%);
+  }
+  .btn.danger:active{
+    background: linear-gradient(180deg, rgba(160,52,52,0.48), rgba(96,24,24,0.46) 55%, rgba(60,13,13,0.52));
+  }
+  .btn.primary{
+    background: linear-gradient(180deg, #fbfcfe 0%, #ccd2db 45%, #99a2af 100%);
+    box-shadow:
+      inset 0 1px 0 #ffffff,
+      inset 0 -2px 4px rgba(0,0,0,0.18),
+      0 2px 5px rgba(0,0,0,0.35),
+      0 10px 22px rgba(0,0,0,0.42);
+    color:#14161a; border-color:rgba(255,255,255,0.5);
+  }
+  .btn.danger{
+    background: linear-gradient(180deg, rgba(196,74,74,0.45), rgba(122,32,32,0.42) 55%, rgba(82,19,19,0.48));
+    color:#ffd9d9;
+  }
   footer{
     text-align:center; font-size:10px; color:var(--ink-faint);
     padding:0 0 6px; letter-spacing:0.4px;
@@ -222,11 +334,6 @@
 
 <div id="errorBar" role="alert"></div>
 
-<div class="modebar">
-  <button id="modePairBtn" type="button" class="sel">အတွဲ ရွေး</button>
-  <button id="modeAutoBtn" type="button">အလိုအလျောက်</button>
-</div>
-
 <div class="pairbar" id="pairBar">
   <button class="lang-btn" id="langABtn" type="button">
     <span class="cap">ဘာသာ A</span>
@@ -238,14 +345,6 @@
     <span class="cap">ဘာသာ B</span>
     <span class="nm" id="langBName">ထိုင်း</span>
     <span class="en" id="langBEn">Thai</span>
-  </button>
-</div>
-
-<div class="pairbar" id="autoBar" style="display:none">
-  <button class="lang-btn" id="targetBtn" type="button">
-    <span class="cap">ဘာသာပြန်မည့် ဘာသာ</span>
-    <span class="nm" id="targetName">မြန်မာ</span>
-    <span class="en" id="targetEn">Burmese</span>
   </button>
 </div>
 
@@ -350,19 +449,42 @@ const LANGS = [
 ];
 const VOICES = ["Kore","Aoede","Charon","Fenrir","Puck"];
 const DEFAULT_MODEL = "gemini-3.8-live";
-const LS = { key:"nloLT.key", voice:"nloLT.voice", model:"nloLT.model", a:"nloLT.langA", b:"nloLT.langB", mode:"nloLT.mode", target:"nloLT.target" };
+const LS = { key:"nloLT.key", voice:"nloLT.voice", model:"nloLT.model", a:"nloLT.langA", b:"nloLT.langB", lastA:"nloLT.lastA", lastB:"nloLT.lastB", mode:"nloLT.mode", target:"nloLT.target" };
+const AUTO_LANG = { id:"AUTO", en:"Auto", my:"အလိုအလျောက်" };
+function validLangId(id){ return LANGS.some(l => l.id === id) ? id : null; }
+
+/* Migration from v4: mode "auto" + target becomes langA="AUTO", langB=<target>. */
+let initA = localStorage.getItem(LS.a) || "my";
+let initB = localStorage.getItem(LS.b) || "th";
+if(localStorage.getItem(LS.mode) === "auto"){
+  initA = "AUTO";
+  initB = validLangId(localStorage.getItem(LS.target)) || "my";
+  localStorage.setItem(LS.a, initA);
+  localStorage.setItem(LS.b, initB);
+}
+if(initA === "AUTO" && initB === "AUTO") initB = "th";
+localStorage.removeItem(LS.mode);
+localStorage.removeItem(LS.target);
 
 const state = {
   key:   localStorage.getItem(LS.key)   || "",
   voice: localStorage.getItem(LS.voice) || "Kore",
   model: localStorage.getItem(LS.model) || DEFAULT_MODEL,
-  langA: localStorage.getItem(LS.a)     || "my",
-  langB: localStorage.getItem(LS.b)     || "th",
-  mode:  localStorage.getItem(LS.mode)  || "pair",
-  target: localStorage.getItem(LS.target) || "my"
+  langA: initA,
+  langB: initB,
+  lastA: validLangId(localStorage.getItem(LS.lastA)) || (initA !== "AUTO" ? validLangId(initA) : null) || "my",
+  lastB: validLangId(localStorage.getItem(LS.lastB)) || (initB !== "AUTO" ? validLangId(initB) : null) || "th"
 };
-function langById(id){ return LANGS.find(l => l.id === id) || LANGS[0]; }
+function langById(id){ if(id === "AUTO") return AUTO_LANG; return LANGS.find(l => l.id === id) || LANGS[0]; }
+function isAuto(){ return state.langA === "AUTO" || state.langB === "AUTO"; }
+function fixedLangId(){ return state.langA === "AUTO" ? state.langB : state.langA; }
 function savePair(){ localStorage.setItem(LS.a, state.langA); localStorage.setItem(LS.b, state.langB); }
+function syncLast(){
+  if(state.langA !== "AUTO") state.lastA = state.langA;
+  if(state.langB !== "AUTO") state.lastB = state.langB;
+  localStorage.setItem(LS.lastA, state.lastA);
+  localStorage.setItem(LS.lastB, state.lastB);
+}
 
 /* Script-based detection, used only to label transcript bubbles */
 const SCRIPTS = [
@@ -436,37 +558,27 @@ function refreshPairUI(){
   const A = langById(state.langA), B = langById(state.langB);
   $("langAName").textContent = A.my; $("langAEn").textContent = A.en;
   $("langBName").textContent = B.my; $("langBEn").textContent = B.en;
-}
-function refreshTargetUI(){
-  const T = langById(state.target);
-  $("targetName").textContent = T.my; $("targetEn").textContent = T.en;
-}
-function refreshModeUI(){
-  const auto = state.mode === "auto";
-  $("modePairBtn").classList.toggle("sel", !auto);
-  $("modeAutoBtn").classList.toggle("sel", auto);
-  $("pairBar").style.display = auto ? "none" : "flex";
-  $("autoBar").style.display = auto ? "flex" : "none";
-  emptyNote.innerHTML = auto
+  emptyNote.innerHTML = isAuto()
     ? "ဘာသာပြန်မည့် ဘာသာကို ရွေးပြီး မိုက် ခလုတ်ကို နှိပ်ပါ။<br>ဘယ်ဘာသာနဲ့ ပြောပြော ရွေးထားတဲ့ ဘာသာနဲ့ ချက်ချင်း ပြန်ပြောပေးမယ်။"
     : "ဘာသာနှစ်ခုကို ရွေးပြီး မိုက် ခလုတ်ကို နှိပ်ပါ။<br>ဘယ်ဘက်ကပြောပြော နောက်ဘာသာနဲ့ ချက်ချင်း ပြန်ပြောပေးမယ်။";
 }
-function setMode(m){
-  state.mode = m;
-  localStorage.setItem(LS.mode, m);
-  refreshModeUI();
-  if(sessionActive) restartSession();
-}
-$("modePairBtn").addEventListener("click", () => setMode("pair"));
-$("modeAutoBtn").addEventListener("click", () => setMode("auto"));
-$("targetBtn").addEventListener("click", () => openLangSheet("T"));
 let pickTarget = "A";
 function buildLangList(){
   const list = $("langList"); list.innerHTML = "";
+  const curVal = pickTarget === "A" ? state.langA : state.langB;
+  // AUTO row first — the spoken language is detected automatically.
+  const ab = document.createElement("button");
+  ab.type = "button"; ab.className = "row" + (curVal === "AUTO" ? " sel" : "");
+  ab.innerHTML = '<span class="tick">' + (curVal === "AUTO" ? "✓" : "") + '</span><span class="nmwrap"><span></span><span class="note"></span></span><span class="en"></span>';
+  ab.children[1].children[0].textContent = "အလိုအလျောက်";
+  ab.children[1].children[1].textContent = "ပြောတဲ့ ဘာသာကို အလိုအလျောက် သိပြီး ပြန်ပေးမယ်";
+  ab.children[2].textContent = "Auto";
+  ab.addEventListener("click", () => { pickLanguage("AUTO"); });
+  list.appendChild(ab);
   LANGS.forEach(l => {
     const b = document.createElement("button");
     b.type = "button"; b.className = "row";
-    const cur = (pickTarget === "A" ? state.langA : (pickTarget === "B" ? state.langB : state.target)) === l.id;
+    const cur = curVal === l.id;
     if(cur) b.classList.add("sel");
     b.innerHTML = '<span class="tick">' + (cur ? "✓" : "") + '</span><span></span><span class="en"></span>';
     b.children[1].textContent = l.my;
@@ -477,29 +589,30 @@ function buildLangList(){
 }
 function openLangSheet(target){
   pickTarget = target;
-  $("langSheetTitle").textContent = target === "A" ? "ဘာသာ A ရွေးပါ" : (target === "B" ? "ဘာသာ B ရွေးပါ" : "ဘာသာပြန်မည့် ဘာသာ ရွေးပါ");
-  $("langSheetSub").textContent = target === "T"
-    ? "ဘယ်ဘာသာနဲ့ ပြောပြော ဒီဘာသာနဲ့ ပြန်ပေးမယ်။"
-    : "ပြောသမျှကို ဒီဘာသာနှစ်ခုကြား အပြန်အလှန် ပြန်ပေးမယ်။";
+  $("langSheetTitle").textContent = target === "A" ? "ဘာသာ A ရွေးပါ" : "ဘာသာ B ရွေးပါ";
+  $("langSheetSub").textContent = "ပြောသမျှကို ဒီဘာသာနှစ်ခုကြား အပြန်အလှန် ပြန်ပေးမယ်။";
   buildLangList();
   openSheet(langSheet);
 }
 function pickLanguage(id){
-  if(pickTarget === "T"){
-    state.target = id;
-    localStorage.setItem(LS.target, id);
-    refreshTargetUI(); closeSheet(langSheet);
-    if(sessionActive) restartSession();
-    return;
-  }
   if(pickTarget === "A"){
-    if(id === state.langB) state.langB = state.langA;
-    state.langA = id;
+    if(id === "AUTO"){
+      if(state.langB === "AUTO") state.langB = state.lastB || "th";
+      state.langA = "AUTO";
+    }else{
+      if(id === state.langB) state.langB = state.langA;
+      state.langA = id;
+    }
   }else{
-    if(id === state.langA) state.langA = state.langB;
-    state.langB = id;
+    if(id === "AUTO"){
+      if(state.langA === "AUTO") state.langA = state.lastA || "my";
+      state.langB = "AUTO";
+    }else{
+      if(id === state.langA) state.langA = state.langB;
+      state.langB = id;
+    }
   }
-  savePair(); refreshPairUI(); closeSheet(langSheet);
+  syncLast(); savePair(); refreshPairUI(); closeSheet(langSheet);
   onPairChanged();
 }
 $("langABtn").addEventListener("click", () => openLangSheet("A"));
@@ -507,7 +620,7 @@ $("langBBtn").addEventListener("click", () => openLangSheet("B"));
 $("langClose").addEventListener("click", () => closeSheet(langSheet));
 $("swapBtn").addEventListener("click", () => {
   const t = state.langA; state.langA = state.langB; state.langB = t;
-  savePair(); refreshPairUI(); onPairChanged();
+  syncLast(); savePair(); refreshPairUI(); onPairChanged();
 });
 function onPairChanged(){
   if(sessionActive){ restartSession(); }
@@ -556,10 +669,10 @@ $("saveSettingsBtn").addEventListener("click", () => {
 $("resetBtn").addEventListener("click", () => {
   Object.keys(LS).forEach(k => localStorage.removeItem(LS[k]));
   state.key = ""; state.voice = "Kore"; state.model = DEFAULT_MODEL; state.langA = "my"; state.langB = "th";
-  state.mode = "pair"; state.target = "my";
+  state.lastA = "my"; state.lastB = "th";
   savePair();
   $("keyInput").value = ""; $("modelInput").value = DEFAULT_MODEL; $("voicePickBtn").textContent = "Kore";
-  refreshPairUI(); refreshTargetUI(); refreshModeUI();
+  refreshPairUI();
   if(sessionActive) stopSession();
   setStatus("", "အသင့်အနေအထား — ဆက်တင် ပြန်စီပြီး");
 });
@@ -608,9 +721,10 @@ document.addEventListener("visibilitychange", () => {
 });
 
 function buildInstruction(){
-  if(state.mode === "auto"){
-    const T = langById(state.target).en;
-    const S = state.target === "en" ? "Burmese" : "English";
+  if(isAuto()){
+    const fixed = fixedLangId();
+    const T = langById(fixed).en;
+    const S = fixed === "en" ? "Burmese" : "English";
     return "You are a professional simultaneous interpreter. " +
       "Your ONLY job is to translate speech into " + T + ". " +
       "Detect ANY language the speaker uses and immediately speak its translation in " + T + ". " +
@@ -726,7 +840,7 @@ function stopMic(){
 function appendTurn(heard, spoken){
   if(emptyNote) emptyNote.style.display = "none";
   let heardLabel, spokenLabel;
-  if(state.mode === "auto"){
+  if(isAuto()){
     heardLabel = "ကြားရတာ";
     spokenLabel = "ဘာသာပြန်";
   }else{
@@ -997,8 +1111,6 @@ micBtn.addEventListener("click", () => {
 
 /* ============ Init ============ */
 refreshPairUI();
-refreshTargetUI();
-refreshModeUI();
 $("voicePickBtn").textContent = state.voice;
 drawWaveIdle();
 </script>
