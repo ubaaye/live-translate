@@ -535,6 +535,7 @@ let reconnectTimer = 0;        // pending auto-reconnect timeout id
 let reconnecting = false;      // an auto-reconnect is in flight
 let freshFallbackUsed = false; // the one fresh-session fallback was already tried
 let lastError = "";            // last server error text, shown if reconnect gives up
+let audioSeen = false;         // first model audio chunk of this session arrived (diagnostic)
 const waveCanvas = $("wave");
 
 function buildInstruction(){
@@ -576,6 +577,12 @@ function ensurePlayCtx(){
 function enqueueAudio(b64){
   try{
     ensurePlayCtx();
+    if(!audioSeen){
+      // Diagnostic: prove to the user the model is sending audio back.
+      audioSeen = true;
+      setStatus("live", "အသံ ရပြီ 🔊");
+      setTimeout(() => { if(sessionReady) setStatus("live", "ချိတ်ဆက်ပြီး — ပြောပါ"); }, 1600);
+    }
     const bytes = base64ToBytes(b64);
     const n = Math.floor(bytes.length / 2);
     if(n === 0) return;
@@ -621,7 +628,7 @@ async function startMic(){
     }
     const b64 = bytesToBase64(new Uint8Array(pcm.buffer));
     try{
-      ws.send(JSON.stringify({ realtimeInput: { mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: b64 }] } }));
+      ws.send(JSON.stringify({ realtimeInput: { audio: { mimeType: "audio/pcm;rate=16000", data: b64 } } }));
     }catch(_){}
   };
 }
@@ -721,7 +728,7 @@ function startSession(){
     return;
   }
   userStop = false; sessionActive = true; sessionReady = false;
-  resumeHandle = null; reconnectAttempts = 0; freshFallbackUsed = false; reconnecting = false; lastError = "";
+  resumeHandle = null; reconnectAttempts = 0; freshFallbackUsed = false; reconnecting = false; lastError = ""; audioSeen = false;
   curIn = ""; curOut = ""; partialLine.textContent = "";
   setMicUI("busy"); setStatus("busy", "ချိတ်နေသည်…");
   ensurePlayCtx(); flushPlayback();
@@ -772,6 +779,7 @@ function openSocket(){
       }
       if(msg.setupComplete){
         sockReady = true;
+        ensurePlayCtx(); // re-resume playback on every (re)connect — mobile autoplay policy
         reconnectAttempts = 0; reconnecting = false; freshFallbackUsed = false;
         try{
           if(!micStream) await startMic();
