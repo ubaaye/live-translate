@@ -67,7 +67,7 @@
   .titles p{ margin:1px 0 0; font-size:12px; color:var(--ink-dim); }
   .icon-btn{
     border:none; background:none; box-shadow:none; appearance:none; -webkit-appearance:none;
-    color:var(--ink); padding:12px; font-size:24px; line-height:1; cursor:pointer;
+    color:var(--ink); padding:12px; font-size:22px; line-height:1; cursor:pointer;
     /* Bare glyph, lifted with layered light-from-above / dark-below shadows */
     text-shadow: 0 1px 0 rgba(255,255,255,0.30), 0 4px 8px rgba(0,0,0,0.55), 0 12px 22px rgba(0,0,0,0.45);
     transition: transform .28s cubic-bezier(0.34, 1.4, 0.64, 1), opacity .2s ease;
@@ -87,7 +87,7 @@
     display:flex; align-items:stretch; gap:8px; margin:2px 14px 10px;
   }
   .lang-btn{
-    flex:1 1 0; border-radius:14px; padding:6px 8px; text-align:center; cursor:pointer;
+    flex:1 1 0; border-radius:14px; padding:4px 8px; text-align:center; cursor:pointer;
     color:var(--ink); border:1px solid rgba(255,255,255,0.24);
     background: linear-gradient(180deg, rgba(233,237,243,0.20), rgba(165,173,185,0.11) 46%, rgba(88,95,106,0.15));
     backdrop-filter: blur(18px) saturate(1.25); -webkit-backdrop-filter: blur(18px) saturate(1.25);
@@ -110,13 +110,13 @@
       inset 0 1px 0 rgba(0,0,0,0.25),
       0 1px 2px rgba(0,0,0,0.28);
   }
-  .lang-btn .cap{ display:block; font-size:10px; color:var(--ink-faint); letter-spacing:1px; margin-bottom:1px; }
-  .lang-btn .nm{ display:block; font-size:15px; font-weight:700; }
-  .lang-btn .en{ display:block; font-size:11px; color:var(--ink-dim); margin-top:1px; }
+  .lang-btn .cap{ display:block; font-size:10px; line-height:1.2; color:var(--ink-faint); letter-spacing:1px; margin-bottom:1px; }
+  .lang-btn .nm{ display:block; font-size:14px; line-height:1.3; font-weight:700; }
+  .lang-btn .en{ display:block; font-size:10px; line-height:1.25; color:var(--ink-dim); margin-top:1px; }
   .swap-btn{
-    flex:0 0 40px; border-radius:14px; border:1px solid rgba(255,255,255,0.24);
+    flex:0 0 34px; border-radius:14px; border:1px solid rgba(255,255,255,0.24);
     background: linear-gradient(180deg, rgba(233,237,243,0.22), rgba(165,173,185,0.12) 46%, rgba(88,95,106,0.16));
-    color:var(--ink); font-size:17px; cursor:pointer;
+    color:var(--ink); font-size:15px; cursor:pointer;
     backdrop-filter: blur(18px) saturate(1.25); -webkit-backdrop-filter: blur(18px) saturate(1.25);
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,0.40),
@@ -158,32 +158,35 @@
   #transcript{
     flex:1 1 auto; overflow-y:auto; margin:10px 14px 0;
     padding:4px 2px 10px; -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
   }
   .empty-note{ text-align:center; color:var(--ink-faint); font-size:13px; margin-top:26px; line-height:1.7; }
-  .turn{ margin-bottom:14px; animation:fadein .25s ease; }
+  /* content-visibility keeps off-screen turns out of layout/paint — cheap scroll */
+  .turn{ margin-bottom:14px; animation:fadein .25s ease; content-visibility:auto; }
   @keyframes fadein{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
   .bubble{ border-radius:16px; padding:9px 12px; max-width:92%; }
   .bubble .lab{ font-size:10px; letter-spacing:0.6px; color:var(--ink-faint); margin-bottom:3px; text-transform:uppercase; }
   .bubble .txt{ font-size:15px; line-height:1.55; word-break:break-word; }
   .bubble.heard{
-    background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.045) 55%, rgba(0,0,0,0.06));
+    /* No backdrop-filter inside the scroll list — slightly more opaque face keeps the 3D look */
+    background: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.07) 55%, rgba(0,0,0,0.09));
     border:1px solid rgba(255,255,255,0.13);
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,0.22),
       inset 0 -1px 0 rgba(0,0,0,0.22),
       0 2px 5px rgba(0,0,0,0.30),
-      0 10px 20px rgba(0,0,0,0.35);
+      0 6px 14px rgba(0,0,0,0.32);
     margin-right:auto; border-bottom-left-radius:6px;
   }
   .bubble.spoken{
-    background: linear-gradient(180deg, rgba(233,237,243,0.20), rgba(165,173,185,0.12) 48%, rgba(88,95,106,0.15));
+    /* No backdrop-filter inside the scroll list — more opaque face compensates, 3D insets kept */
+    background: linear-gradient(180deg, rgba(233,237,243,0.27), rgba(165,173,185,0.18) 48%, rgba(88,95,106,0.21));
     border:1px solid rgba(255,255,255,0.22);
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,0.36),
       inset 0 -1px 0 rgba(0,0,0,0.28),
       0 2px 5px rgba(0,0,0,0.32),
-      0 12px 24px rgba(0,0,0,0.42);
-    backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+      0 6px 14px rgba(0,0,0,0.38);
     margin-left:auto; margin-top:5px; border-bottom-right-radius:6px;
   }
   .bubble.spoken .txt{ font-size:16px; font-weight:600; }
@@ -194,7 +197,7 @@
   }
   #micBtn{
     background:none; border:none; box-shadow:none; appearance:none; -webkit-appearance:none;
-    color:var(--ink); font-size:46px; line-height:1; cursor:pointer;
+    color:var(--ink); font-size:40px; line-height:1; cursor:pointer;
     padding:18px;
     display:flex; align-items:center; justify-content:center;
     /* Bare glyph — depth comes from layered drop shadows only (light above, dark below) */
@@ -208,7 +211,7 @@
   #micBtn.live{ color:#ff5f5f; }
   #micBtn.live + #micLabel{ color:#ff5f5f; }
   #micBtn.busy{ opacity:0.75; }
-  #micLabel{ font-size:13px; font-weight:700; text-shadow: 0 1px 0 rgba(255,255,255,0.18), 0 3px 8px rgba(0,0,0,0.60); }
+  #micLabel{ font-size:12px; font-weight:700; text-shadow: 0 1px 0 rgba(255,255,255,0.18), 0 3px 8px rgba(0,0,0,0.60); }
 
   /* Bottom sheets */
   #overlay{
@@ -240,10 +243,10 @@
   .sheet .list{ overflow-y:auto; -webkit-overflow-scrolling:touch; }
   .row{
     display:flex; align-items:center; gap:10px; width:100%;
-    padding:9px 10px; border:0; border-bottom:1px solid rgba(255,255,255,0.07);
+    padding:7px 10px; border:0; border-bottom:1px solid rgba(255,255,255,0.07);
     background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0) 60%, rgba(0,0,0,0.05));
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
-    color:var(--ink); font-size:15px; text-align:left; cursor:pointer;
+    color:var(--ink); font-size:14px; text-align:left; cursor:pointer;
     transition:
       transform .28s cubic-bezier(0.34, 1.4, 0.64, 1),
       box-shadow .28s cubic-bezier(0.34, 1.4, 0.64, 1),
@@ -275,7 +278,7 @@
   .field input.missing{ border-color:var(--danger); box-shadow:0 0 0 2px rgba(255,120,120,0.35); }
   .sheet .btnrow{ display:flex; gap:8px; margin-top:12px; }
   .btn{
-    flex:1; padding:9px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.24);
+    flex:1; padding:7px 10px; border-radius:12px; border:1px solid rgba(255,255,255,0.24);
     background: linear-gradient(180deg, rgba(233,237,243,0.20), rgba(165,173,185,0.11) 46%, rgba(88,95,106,0.15));
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,0.38),
