@@ -39,18 +39,6 @@
   }
   body.locked{ overflow:hidden; }
 
-  .glass{
-    background: linear-gradient(180deg, rgba(230,234,240,0.17), rgba(150,158,170,0.09) 48%, rgba(66,72,82,0.14));
-    border:1px solid rgba(255,255,255,0.22);
-    backdrop-filter: blur(18px) saturate(1.25);
-    -webkit-backdrop-filter: blur(18px) saturate(1.25);
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,0.38),
-      inset 0 -1px 0 rgba(0,0,0,0.30),
-      0 3px 8px rgba(0,0,0,0.35),
-      0 18px 38px rgba(0,0,0,0.50);
-  }
-
   header{
     display:flex; align-items:center; gap:10px;
     padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
@@ -135,8 +123,7 @@
       0 1px 2px rgba(0,0,0,0.28);
   }
 
-  .stage{ margin:0 14px; border-radius:18px; padding:5px 12px 2px; }
-  #wave{ width:100%; height:28px; display:block; }
+  /* Status area is plain text on the page background — no panel box (owner request) */
   #statusLine{
     text-align:center; font-size:13px; color:var(--ink-dim);
     padding:1px 4px 2px; min-height:18px;
@@ -180,7 +167,7 @@
     border:1px solid rgba(255,255,255,0.14);
     margin-left:auto; margin-top:5px; border-bottom-right-radius:6px;
   }
-  .bubble.spoken .txt{ font-size:16px; font-weight:600; }
+  .bubble.spoken .txt{ font-size:16px; font-weight:600; color:#7ee787; }
 
   .controls{
     padding:10px 14px calc(14px + env(safe-area-inset-bottom));
@@ -339,11 +326,8 @@
   </button>
 </div>
 
-<div class="stage glass">
-  <canvas id="wave" width="640" height="56"></canvas>
-  <div id="statusLine"><span class="dot"></span><span id="statusText">အသင့်အနေအထား</span></div>
-  <div id="partialLine"></div>
-</div>
+<div id="statusLine"><span class="dot"></span><span id="statusText">အသင့်အနေအထား</span></div>
+<div id="partialLine"></div>
 
 <div id="transcript">
   <div class="empty-note" id="emptyNote">မိုက် ခလုတ်ကို နှိပ်ပြီး စပြောပါ။</div>
@@ -675,13 +659,11 @@ let ws = null;
 let sessionActive = false;   // user wants session running
 let sessionReady = false;    // setupComplete received + mic live
 let userStop = false;
-let micCtx = null, micStream = null, micSource = null, procNode = null, muteGain = null, analyser = null;
+let micCtx = null, micStream = null, micSource = null, procNode = null, muteGain = null;
 let playCtx = null, nextPlayTime = 0;
 const liveSources = new Set();
 let curIn = "", curOut = "";
 const isTagOnly = t => /^<[^>]*>$/.test((t || "").trim());  // e.g. "<no speech detected>" — never shown
-let waveRAF = 0;
-let waveRunning = false;
 let resumeHandle = null;       // latest resumable handle from sessionResumptionUpdate
 let reconnectAttempts = 0;     // consecutive failed auto-reconnects
 let reconnectTimer = 0;        // pending auto-reconnect timeout id
@@ -690,7 +672,6 @@ let freshFallbackUsed = false; // the one fresh-session fallback was already tri
 let lastError = "";            // last server error text, shown if reconnect gives up
 let audioSeen = false;         // first model audio chunk of this session arrived (diagnostic)
 let wakeLock = null;           // screen wake lock held while a session is live
-const waveCanvas = $("wave");
 
 /* ---- wake lock: keep the screen on mid-conversation ---- */
 async function requestWakeLock(){
@@ -803,8 +784,6 @@ async function startMic(){
   micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
   micCtx = new (window.AudioContext || window.webkitAudioContext)();
   micSource = micCtx.createMediaStreamSource(micStream);
-  analyser = micCtx.createAnalyser(); analyser.fftSize = 256;
-  micSource.connect(analyser);
   procNode = micCtx.createScriptProcessor(2048, 1, 1);
   muteGain = micCtx.createGain(); muteGain.gain.value = 0;
   micSource.connect(procNode); procNode.connect(muteGain); muteGain.connect(micCtx.destination);
@@ -827,7 +806,6 @@ function stopMic(){
   if(procNode){ try{ procNode.disconnect(); }catch(_){} procNode.onaudioprocess = null; procNode = null; }
   if(micSource){ try{ micSource.disconnect(); }catch(_){} micSource = null; }
   if(muteGain){ try{ muteGain.disconnect(); }catch(_){} muteGain = null; }
-  analyser = null;
   if(micStream){ micStream.getTracks().forEach(t => t.stop()); micStream = null; }
   if(micCtx){ try{ micCtx.close(); }catch(_){} micCtx = null; }
 }
@@ -875,40 +853,6 @@ function finalizeTurn(){
   if(isTagOnly(spoken)) spoken = "";
   curIn = ""; curOut = ""; partialLine.textContent = "";
   if(heard || spoken) appendTurn(heard, spoken);
-}
-
-/* ---- waveform ---- */
-function roundRectPath(ctx, x, y, w, h, r){
-  r = Math.min(r, w / 2, h / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-function drawWave(){
-  waveRunning = true;
-  const ctx = waveCanvas.getContext("2d");
-  const W = waveCanvas.width, H = waveCanvas.height;
-  ctx.clearRect(0, 0, W, H);
-  const bars = 36, bw = W / bars;
-  let data = null;
-  if(analyser){ data = new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(data); }
-  for(let i = 0; i < bars; i++){
-    let v = 0.07;
-    if(data){ const idx = Math.floor(i / bars * data.length * 0.7); v = Math.max(0.06, data[idx] / 255); }
-    const h = v * (H - 10);
-    const grad = ctx.createLinearGradient(0, H / 2 - h / 2, 0, H / 2 + h / 2);
-    grad.addColorStop(0, "rgba(242,245,249,0.95)");
-    grad.addColorStop(1, "rgba(150,158,170,0.5)");
-    ctx.fillStyle = grad;
-    roundRectPath(ctx, i * bw + bw * 0.22, H / 2 - h / 2, bw * 0.56, h, 3);
-    ctx.fill();
-  }
-  if(sessionActive) waveRAF = requestAnimationFrame(drawWave);
-  else waveRunning = false;
 }
 
 /* ---- session control ---- */
@@ -995,7 +939,6 @@ function openSocket(){
           sessionReady = true;
           requestWakeLock();
           setMicUI("live"); setStatus("live", "ချိတ်ဆက်ပြီး — ပြောပါ");
-          if(!waveRunning) drawWave();
         }catch(err){
           showError("မိုက် ဖွင့်မရပါ: " + (err && err.name ? err.name + " — " : "") + (err && err.message ? err.message : err) + " (မိုက် ခွင့်ပြုချက် ပေးထားရဲ့လား စစ်ပါ)");
           userStop = true;
@@ -1078,10 +1021,8 @@ function teardownSession(){
   releaseWakeLock();
   if(reconnectTimer){ clearTimeout(reconnectTimer); reconnectTimer = 0; }
   stopMic(); flushPlayback();
-  cancelAnimationFrame(waveRAF); waveRunning = false;
   if(ws){ try{ ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null; if(ws.readyState < 2) ws.close(); }catch(_){} ws = null; }
   setMicUI("idle");
-  drawWaveIdle();
 }
 function stopSession(){
   userStop = true;
@@ -1097,10 +1038,6 @@ function restartSession(){
   userStop = false;
   startSession();
 }
-function drawWaveIdle(){
-  const wasActive = sessionActive; sessionActive = false;
-  drawWave(); sessionActive = wasActive;
-}
 micBtn.addEventListener("click", () => {
   if(sessionActive) stopSession(); else startSession();
 });
@@ -1108,7 +1045,6 @@ micBtn.addEventListener("click", () => {
 /* ============ Init ============ */
 refreshPairUI();
 $("voicePickBtn").textContent = state.voice;
-drawWaveIdle();
 </script>
 </body>
 </html>
