@@ -59,11 +59,10 @@
   .titles h1{ margin:0; font-size:17px; font-weight:700; letter-spacing:0.2px; }
   .titles p{ margin:1px 0 0; font-size:12px; color:var(--ink-dim); }
   .icon-btn{
-    border:1px solid var(--stroke); background:var(--glass); color:var(--ink);
-    border-radius:12px; padding:9px 12px; font-size:13px; cursor:pointer;
-    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    border:none; background:none; box-shadow:none; appearance:none; -webkit-appearance:none;
+    color:var(--ink); padding:12px; font-size:24px; line-height:1; cursor:pointer;
   }
-  .icon-btn:active{ background:var(--glass-strong); }
+  .icon-btn:active{ opacity:0.6; }
 
   #errorBar{
     display:none; margin:0 14px 8px; padding:10px 12px; border-radius:12px;
@@ -147,21 +146,17 @@
     display:flex; flex-direction:column; align-items:center; gap:8px;
   }
   #micBtn{
-    width:86px; height:86px; border-radius:50%; border:1px solid rgba(255,255,255,0.35);
-    background: linear-gradient(150deg, #f4f6f9, #9aa3af 55%, #cfd6de);
-    color:#14161a; font-size:30px; cursor:pointer;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.5), inset 0 2px 0 #fff, inset 0 -6px 14px rgba(0,0,0,0.18);
+    background:none; border:none; box-shadow:none; appearance:none; -webkit-appearance:none;
+    color:var(--ink); font-size:64px; line-height:1; cursor:pointer;
+    padding:24px;
     display:flex; align-items:center; justify-content:center;
-    transition: transform .12s ease, background .2s ease;
+    transition: transform .12s ease, color .2s ease, opacity .2s ease;
   }
   #micBtn:active{ transform:scale(0.96); }
-  #micBtn.live{
-    background: linear-gradient(150deg, #ffb3b3, #d84f4f 55%, #f0a3a3);
-    color:#fff; border-color:rgba(255,255,255,0.5);
-  }
+  #micBtn.live{ color:#ff5f5f; }
+  #micBtn.live + #micLabel{ color:#ff5f5f; }
   #micBtn.busy{ opacity:0.75; }
   #micLabel{ font-size:14px; font-weight:700; }
-  #micHint{ font-size:11px; color:var(--ink-faint); text-align:center; }
 
   /* Bottom sheets */
   #overlay{
@@ -222,7 +217,7 @@
     <h1>NLO Live Translate</h1>
     <p>တိုက်ရိုက် ဘာသာပြန် — ပြောလိုက်တာနဲ့ ပြန်ပြောပေးတယ်</p>
   </div>
-  <button class="icon-btn" id="settingsBtn" type="button">ဆက်တင်</button>
+  <button class="icon-btn" id="settingsBtn" type="button" aria-label="ဆက်တင်">⚙️</button>
 </header>
 
 <div id="errorBar" role="alert"></div>
@@ -267,7 +262,6 @@
 <div class="controls">
   <button id="micBtn" type="button" aria-label="စတင် / ရပ်">🎤</button>
   <div id="micLabel">စတင်</div>
-  <div id="micHint">စတင်ရန် Gemini API key လိုပါတယ် — ဆက်တင်မှာ ထည့်ပါ</div>
 </div>
 
 <footer>NLO • Live Translate</footer>
@@ -403,7 +397,7 @@ const $ = id => document.getElementById(id);
 const overlay = $("overlay"), errorBar = $("errorBar");
 const statusLine = $("statusLine"), statusText = $("statusText"), partialLine = $("partialLine");
 const transcriptEl = $("transcript"), emptyNote = $("emptyNote");
-const micBtn = $("micBtn"), micLabel = $("micLabel"), micHint = $("micHint");
+const micBtn = $("micBtn"), micLabel = $("micLabel");
 const langSheet = $("langSheet"), voiceSheet = $("voiceSheet"), settingsSheet = $("settingsSheet");
 
 function showError(msg){
@@ -556,7 +550,7 @@ $("saveSettingsBtn").addEventListener("click", () => {
   state.key = newKey; state.model = newModel;
   if(newKey) localStorage.setItem(LS.key, newKey); else localStorage.removeItem(LS.key);
   localStorage.setItem(LS.model, newModel);
-  refreshHint(); closeSheet(settingsSheet);
+  closeSheet(settingsSheet);
   if(changed && sessionActive) restartSession();
 });
 $("resetBtn").addEventListener("click", () => {
@@ -565,15 +559,10 @@ $("resetBtn").addEventListener("click", () => {
   state.mode = "pair"; state.target = "my";
   savePair();
   $("keyInput").value = ""; $("modelInput").value = DEFAULT_MODEL; $("voicePickBtn").textContent = "Kore";
-  refreshPairUI(); refreshTargetUI(); refreshModeUI(); refreshHint();
+  refreshPairUI(); refreshTargetUI(); refreshModeUI();
   if(sessionActive) stopSession();
   setStatus("", "အသင့်အနေအထား — ဆက်တင် ပြန်စီပြီး");
 });
-function refreshHint(){
-  micHint.textContent = state.key
-    ? "မိုက်ကို နှိပ်ပြီး ပြောပါ — နှစ်ဘာသာ အပြန်အလှန် ပြန်ပေးမယ်"
-    : "စတင်ရန် Gemini API key လိုပါတယ် — ဆက်တင်မှာ ထည့်ပါ";
-}
 </script>
 
 <script>
@@ -588,6 +577,7 @@ let micCtx = null, micStream = null, micSource = null, procNode = null, muteGain
 let playCtx = null, nextPlayTime = 0;
 const liveSources = new Set();
 let curIn = "", curOut = "";
+const isTagOnly = t => /^<[^>]*>$/.test((t || "").trim());  // e.g. "<no speech detected>" — never shown
 let waveRAF = 0;
 let waveRunning = false;
 let resumeHandle = null;       // latest resumable handle from sessionResumptionUpdate
@@ -765,11 +755,14 @@ function appendTurn(heard, spoken){
   transcriptEl.scrollTop = transcriptEl.scrollHeight;
 }
 function updatePartial(){
+  if(isTagOnly(curOut) || isTagOnly(curIn)) return;
   const t = curOut ? "🔊 " + curOut : (curIn ? "🎙 " + curIn : "");
   partialLine.textContent = t.length > 90 ? "…" + t.slice(-90) : t;
 }
 function finalizeTurn(){
-  const heard = curIn.trim(), spoken = curOut.trim();
+  let heard = curIn.trim(), spoken = curOut.trim();
+  if(isTagOnly(heard)) heard = "";
+  if(isTagOnly(spoken)) spoken = "";
   curIn = ""; curOut = ""; partialLine.textContent = "";
   if(heard || spoken) appendTurn(heard, spoken);
 }
@@ -914,8 +907,8 @@ function openSocket(){
       const sc = msg.serverContent;
       if(sc){
         if(sc.interrupted) flushPlayback();
-        if(sc.inputTranscription && sc.inputTranscription.text){ curIn += sc.inputTranscription.text; updatePartial(); }
-        if(sc.outputTranscription && sc.outputTranscription.text){ curOut += sc.outputTranscription.text; updatePartial(); }
+        if(sc.inputTranscription && sc.inputTranscription.text && !isTagOnly(sc.inputTranscription.text)){ curIn += sc.inputTranscription.text; updatePartial(); }
+        if(sc.outputTranscription && sc.outputTranscription.text && !isTagOnly(sc.outputTranscription.text)){ curOut += sc.outputTranscription.text; updatePartial(); }
         const parts = (sc.modelTurn && sc.modelTurn.parts) || [];
         for(const p of parts){
           if(p && p.inlineData && p.inlineData.data) enqueueAudio(p.inlineData.data);
@@ -1006,7 +999,6 @@ micBtn.addEventListener("click", () => {
 refreshPairUI();
 refreshTargetUI();
 refreshModeUI();
-refreshHint();
 $("voicePickBtn").textContent = state.voice;
 drawWaveIdle();
 </script>
