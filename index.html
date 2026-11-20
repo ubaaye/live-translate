@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>NLO Live Translate — တိုက်ရိုက် ဘာသာပြန်</title>
+<style>
+  :root{
+    --glass: rgba(210,214,220,0.10);
+    --glass-strong: rgba(210,214,220,0.16);
+    --stroke: rgba(255,255,255,0.18);
+    --ink: #eef1f5;
+    --ink-dim: #b9c0ca;
+    --ink-faint: #8b939e;
+    --silver: #d7dce3;
+    --accent: #e8ecf1;
+    --danger: #ff8a8a;
+    --danger-bg: rgba(120,30,30,0.45);
+    --ok: #9fe8b1;
+  }
+  *{ box-sizing:border-box; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; }
+  input, textarea{ -webkit-user-select:text; user-select:text; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans Myanmar", "Pyidaungsu", sans-serif;
+    color:var(--ink);
+    /* Scene painted on body itself so backdrop-filter glass samples it */
+    background:
+      radial-gradient(120% 60% at 85% -5%, rgba(190,198,210,0.28) 0%, rgba(190,198,210,0) 55%),
+      radial-gradient(100% 55% at 5% 105%, rgba(140,150,165,0.22) 0%, rgba(140,150,165,0) 55%),
+      linear-gradient(165deg, #3a3f46 0%, #23262b 45%, #141619 100%);
+    background-attachment: fixed;
+    display:flex; flex-direction:column;
+    overflow:hidden;
+  }
+  body.locked{ overflow:hidden; }
+
+  .glass{
+    background:var(--glass);
+    border:1px solid var(--stroke);
+    backdrop-filter: blur(18px) saturate(1.2);
+    -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12);
+  }
+
+  header{
+    display:flex; align-items:center; gap:10px;
+    padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+  }
+  .brand{
+    width:40px; height:40px; border-radius:12px; flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; letter-spacing:0.5px; font-size:13px; color:#14161a;
+    background: linear-gradient(145deg, #f2f4f7, #aab1bc 60%, #dfe4ea);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.4), inset 0 1px 0 #fff;
+  }
+  .titles{ flex:1 1 auto; min-width:0; }
+  .titles h1{ margin:0; font-size:17px; font-weight:700; letter-spacing:0.2px; }
+  .titles p{ margin:1px 0 0; font-size:12px; color:var(--ink-dim); }
+  .icon-btn{
+    border:1px solid var(--stroke); background:var(--glass); color:var(--ink);
+    border-radius:12px; padding:9px 12px; font-size:13px; cursor:pointer;
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  }
+  .icon-btn:active{ background:var(--glass-strong); }
+
+  #errorBar{
+    display:none; margin:0 14px 8px; padding:10px 12px; border-radius:12px;
+    background:var(--danger-bg); border:1px solid rgba(255,140,140,0.5);
+    color:#ffd9d9; font-size:13px; line-height:1.45; word-break:break-word;
+  }
+  #errorBar.show{ display:block; }
+
+  .pairbar{
+    display:flex; align-items:stretch; gap:8px; margin:2px 14px 10px;
+  }
+  .lang-btn{
+    flex:1 1 0; border-radius:16px; padding:10px 8px; text-align:center; cursor:pointer;
+    color:var(--ink); border:1px solid var(--stroke); background:var(--glass);
+    backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10);
+  }
+  .lang-btn .cap{ display:block; font-size:10px; color:var(--ink-faint); letter-spacing:1px; margin-bottom:2px; }
+  .lang-btn .nm{ display:block; font-size:16px; font-weight:700; }
+  .lang-btn .en{ display:block; font-size:11px; color:var(--ink-dim); margin-top:1px; }
+  .swap-btn{
+    flex:0 0 46px; border-radius:16px; border:1px solid var(--stroke);
+    background:var(--glass-strong); color:var(--ink); font-size:19px; cursor:pointer;
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  }
+  .swap-btn:active{ transform:scale(0.95); }
+
+  .stage{ margin:0 14px; border-radius:18px; padding:10px 12px 6px; }
+  #wave{ width:100%; height:56px; display:block; }
+  #statusLine{
+    text-align:center; font-size:13px; color:var(--ink-dim);
+    padding:2px 4px 8px; min-height:20px;
+  }
+  #statusLine .dot{
+    display:inline-block; width:8px; height:8px; border-radius:50%;
+    background:#7d8590; margin-right:6px; vertical-align:1px;
+  }
+  #statusLine.live .dot{ background:var(--ok); box-shadow:0 0 8px var(--ok); }
+  #statusLine.busy .dot{ background:#ffd479; box-shadow:0 0 8px #ffd479; }
+  #partialLine{
+    text-align:center; font-size:13px; color:var(--silver);
+    min-height:18px; padding:0 6px 6px; font-style:italic;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+
+  #transcript{
+    flex:1 1 auto; overflow-y:auto; margin:10px 14px 0;
+    padding:4px 2px 10px; -webkit-overflow-scrolling:touch;
+  }
+  .empty-note{ text-align:center; color:var(--ink-faint); font-size:13px; margin-top:26px; line-height:1.7; }
+  .turn{ margin-bottom:14px; animation:fadein .25s ease; }
+  @keyframes fadein{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
+  .bubble{ border-radius:16px; padding:9px 12px; max-width:92%; }
+  .bubble .lab{ font-size:10px; letter-spacing:0.6px; color:var(--ink-faint); margin-bottom:3px; text-transform:uppercase; }
+  .bubble .txt{ font-size:15px; line-height:1.55; word-break:break-word; }
+  .bubble.heard{
+    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.10);
+    margin-right:auto; border-bottom-left-radius:6px;
+  }
+  .bubble.spoken{
+    background:var(--glass-strong); border:1px solid var(--stroke);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    margin-left:auto; margin-top:5px; border-bottom-right-radius:6px;
+  }
+  .bubble.spoken .txt{ font-size:16px; font-weight:600; }
+
+  .controls{
+    padding:10px 14px calc(14px + env(safe-area-inset-bottom));
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+  }
+  #micBtn{
+    width:86px; height:86px; border-radius:50%; border:1px solid rgba(255,255,255,0.35);
+    background: linear-gradient(150deg, #f4f6f9, #9aa3af 55%, #cfd6de);
+    color:#14161a; font-size:30px; cursor:pointer;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.5), inset 0 2px 0 #fff, inset 0 -6px 14px rgba(0,0,0,0.18);
+    display:flex; align-items:center; justify-content:center;
+    transition: transform .12s ease, background .2s ease;
+  }
+  #micBtn:active{ transform:scale(0.96); }
+  #micBtn.live{
+    background: linear-gradient(150deg, #ffb3b3, #d84f4f 55%, #f0a3a3);
+    color:#fff; border-color:rgba(255,255,255,0.5);
+  }
+  #micBtn.busy{ opacity:0.75; }
+  #micLabel{ font-size:14px; font-weight:700; }
+  #micHint{ font-size:11px; color:var(--ink-faint); text-align:center; }
+
+  /* Bottom sheets */
+  #overlay{
+    position:fixed; inset:0; background:rgba(8,9,11,0.55);
+    opacity:0; pointer-events:none; transition:opacity .2s ease; z-index:40;
+  }
+  #overlay.show{ opacity:1; pointer-events:auto; }
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:50;
+    max-height:82vh; display:flex; flex-direction:column;
+    border-radius:22px 22px 0 0; padding:10px 16px calc(16px + env(safe-area-inset-bottom));
+    background:rgba(38,41,47,0.82);
+    border-top:1px solid var(--stroke);
+    backdrop-filter: blur(26px) saturate(1.3); -webkit-backdrop-filter: blur(26px) saturate(1.3);
+    box-shadow: 0 -14px 40px rgba(0,0,0,0.5);
+    transform:translateY(105%); transition:transform .25s ease;
+  }
+  .sheet.show{ transform:translateY(0); }
+  .sheet .grab{ width:42px; height:4px; border-radius:2px; background:rgba(255,255,255,0.3); margin:2px auto 10px; }
+  .sheet h2{ margin:0 0 4px; font-size:16px; }
+  .sheet .sub{ font-size:12px; color:var(--ink-dim); margin:0 0 10px; line-height:1.5; }
+  .sheet .list{ overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  .row{
+    display:flex; align-items:center; gap:10px; width:100%;
+    padding:12px 10px; border:0; border-bottom:1px solid rgba(255,255,255,0.07);
+    background:transparent; color:var(--ink); font-size:15px; text-align:left; cursor:pointer;
+  }
+  .row .en{ color:var(--ink-dim); font-size:12px; margin-left:auto; }
+  .row.sel{ background:rgba(255,255,255,0.08); border-radius:10px; }
+  .row .tick{ color:var(--ok); font-size:14px; width:16px; }
+  .field{ margin:10px 0; }
+  .field label{ display:block; font-size:12px; color:var(--ink-dim); margin-bottom:5px; }
+  .field input{
+    width:100%; padding:11px 12px; border-radius:12px; font-size:14px;
+    background:rgba(255,255,255,0.07); border:1px solid var(--stroke); color:var(--ink);
+    outline:none;
+  }
+  .field input:focus{ border-color:rgba(255,255,255,0.55); }
+  .field input.missing{ border-color:var(--danger); box-shadow:0 0 0 2px rgba(255,120,120,0.35); }
+  .sheet .btnrow{ display:flex; gap:8px; margin-top:12px; }
+  .btn{
+    flex:1; padding:12px; border-radius:12px; border:1px solid var(--stroke);
+    background:var(--glass-strong); color:var(--ink); font-size:14px; font-weight:700; cursor:pointer;
+  }
+  .btn.primary{ background:linear-gradient(150deg,#f4f6f9,#aeb6c1); color:#14161a; border-color:rgba(255,255,255,0.4); }
+  .btn.danger{ background:rgba(120,30,30,0.4); color:#ffd9d9; }
+  footer{
+    text-align:center; font-size:10px; color:var(--ink-faint);
+    padding:0 0 6px; letter-spacing:0.4px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">NLO</div>
+  <div class="titles">
+    <h1>NLO Live Translate</h1>
+    <p>တိုက်ရိုက် ဘာသာပြန် — ပြောလိုက်တာနဲ့ ပြန်ပြောပေးတယ်</p>
+  </div>
+  <button class="icon-btn" id="settingsBtn" type="button">ဆက်တင်</button>
+</header>
+
+<div id="errorBar" role="alert"></div>
+
+<div class="pairbar">
+  <button class="lang-btn" id="langABtn" type="button">
+    <span class="cap">ဘာသာ A</span>
+    <span class="nm" id="langAName">မြန်မာ</span>
+    <span class="en" id="langAEn">Burmese</span>
+  </button>
+  <button class="swap-btn" id="swapBtn" type="button" aria-label="လဲလှယ်">⇄</button>
+  <button class="lang-btn" id="langBBtn" type="button">
+    <span class="cap">ဘာသာ B</span>
+    <span class="nm" id="langBName">ထိုင်း</span>
+    <span class="en" id="langBEn">Thai</span>
+  </button>
+</div>
+
+<div class="stage glass">
+  <canvas id="wave" width="640" height="112"></canvas>
+  <div id="statusLine"><span class="dot"></span><span id="statusText">အသင့်အနေအထား</span></div>
+  <div id="partialLine"></div>
+</div>
+
+<div id="transcript">
+  <div class="empty-note" id="emptyNote">ဘာသာနှစ်ခုကို ရွေးပြီး မိုက် ခလုတ်ကို နှိပ်ပါ။<br>ဘယ်ဘက်ကပြောပြော နောက်ဘာသာနဲ့ ချက်ချင်း ပြန်ပြောပေးမယ်။</div>
+</div>
+
+<div class="controls">
+  <button id="micBtn" type="button" aria-label="စတင် / ရပ်">🎤</button>
+  <div id="micLabel">စတင်</div>
+  <div id="micHint">စတင်ရန် Gemini API key လိုပါတယ် — ဆက်တင်မှာ ထည့်ပါ</div>
+</div>
+
+<footer>NLO • Live Translate</footer>
+
+<div id="overlay"></div>
+
+<!-- Language picker sheet -->
+<div class="sheet" id="langSheet" aria-hidden="true">
+  <div class="grab"></div>
+  <h2 id="langSheetTitle">ဘာသာ ရွေးပါ</h2>
+  <p class="sub">ပြောသမျှကို ဒီဘာသာနှစ်ခုကြား အပြန်အလှန် ပြန်ပေးမယ်။</p>
+  <div class="list" id="langList"></div>
+  <div class="btnrow"><button class="btn" id="langClose" type="button">ပိတ်</button></div>
+</div>
+
+<!-- Voice picker sheet -->
+<div class="sheet" id="voiceSheet" aria-hidden="true">
+  <div class="grab"></div>
+  <h2>အသံ ရွေးပါ</h2>
+  <p class="sub">ဘာသာပြန် အသံထွက် ပြောမယ့် အသံ။</p>
+  <div class="list" id="voiceList"></div>
+  <div class="btnrow"><button class="btn" id="voiceClose" type="button">ပိတ်</button></div>
+</div>
+
+<!-- Settings sheet -->
+<div class="sheet" id="settingsSheet" aria-hidden="true">
+  <div class="grab"></div>
+  <h2>ဆက်တင်</h2>
+  <p class="sub">ကိုယ့် Gemini API key ကို ထည့်ပါ။ ဒီ ဖုန်း/ဘရောက်ဆာ ထဲမှာပဲ သိမ်းထားပြီး Google ဆီကိုပဲ ပို့ပါတယ်။</p>
+  <div class="field">
+    <label for="keyInput">Gemini API Key</label>
+    <input id="keyInput" type="password" placeholder="AIza…" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="field">
+    <label>ဘာသာပြန် အသံ</label>
+    <button class="btn" id="voicePickBtn" type="button" style="width:100%;text-align:left;">Kore</button>
+  </div>
+  <div class="field">
+    <label for="modelInput">Model</label>
+    <input id="modelInput" type="text" autocomplete="off" spellcheck="false">
+  </div>
+  <div class="btnrow">
+    <button class="btn danger" id="resetBtn" type="button">Reset</button>
+    <button class="btn primary" id="saveSettingsBtn" type="button">သိမ်း</button>
+  </div>
+  <div class="btnrow"><button class="btn" id="settingsClose" type="button">ပိတ်</button></div>
+</div>
+
+<script>
+"use strict";
+/* ============ Data ============ */
+const LANGS = [
+  {id:"my",  en:"Burmese",              my:"မြန်မာ"},
+  {id:"th",  en:"Thai",                 my:"ထိုင်း"},
+  {id:"en",  en:"English",              my:"အင်္ဂလိပ်"},
+  {id:"zh",  en:"Chinese (Mandarin)",   my:"တရုတ် (မန်ဒရင်း)"},
+  {id:"yue", en:"Cantonese",            my:"ကန်တုံ"},
+  {id:"ko",  en:"Korean",               my:"ကိုရီးယား"},
+  {id:"ja",  en:"Japanese",             my:"ဂျပန်"},
+  {id:"lo",  en:"Lao",                  my:"လာအို"},
+  {id:"km",  en:"Khmer",                my:"ခမာ"},
+  {id:"vi",  en:"Vietnamese",           my:"ဗီယက်နမ်"},
+  {id:"ms",  en:"Malay",                my:"မလေး"},
+  {id:"id",  en:"Indonesian",           my:"အင်ဒိုနီးရှား"},
+  {id:"tl",  en:"Tagalog",              my:"တဂါးလော့"},
+  {id:"hi",  en:"Hindi",                my:"ဟိန္ဒီ"},
+  {id:"bn",  en:"Bengali",              my:"ဘင်္ဂါလီ"},
+  {id:"ur",  en:"Urdu",                 my:"အူရဒူ"},
+  {id:"ta",  en:"Tamil",                my:"တမီးလ်"},
+  {id:"te",  en:"Telugu",               my:"တေလဂူ"},
+  {id:"ne",  en:"Nepali",               my:"နီပေါ"},
+  {id:"si",  en:"Sinhala",              my:"သီဟိုဠ်"},
+  {id:"fa",  en:"Persian",              my:"ပါရှန်း"},
+  {id:"ar",  en:"Arabic",               my:"အာရပ်"},
+  {id:"tr",  en:"Turkish",              my:"တူရကီ"},
+  {id:"es",  en:"Spanish",              my:"စပိန်"},
+  {id:"fr",  en:"French",               my:"ပြင်သစ်"},
+  {id:"de",  en:"German",               my:"ဂျာမန်"},
+  {id:"it",  en:"Italian",              my:"အီတလီ"},
+  {id:"pt",  en:"Portuguese",           my:"ပေါ်တူဂီ"},
+  {id:"nl",  en:"Dutch",                my:"ဒတ်ချ်"},
+  {id:"ru",  en:"Russian",              my:"ရုရှား"},
+  {id:"uk",  en:"Ukrainian",            my:"ယူကရိန်း"},
+  {id:"pl",  en:"Polish",               my:"ပိုလန်"},
+  {id:"sw",  en:"Swahili",              my:"ဆွာဟီလီ"}
+];
+const VOICES = ["Kore","Aoede","Charon","Fenrir","Puck"];
+const DEFAULT_MODEL = "gemini-3.8-live";
+const LS = { key:"nloLT.key", voice:"nloLT.voice", model:"nloLT.model", a:"nloLT.langA", b:"nloLT.langB" };
+
+const state = {
+  key:   localStorage.getItem(LS.key)   || "",
+  voice: localStorage.getItem(LS.voice) || "Kore",
+  model: localStorage.getItem(LS.model) || DEFAULT_MODEL,
+  langA: localStorage.getItem(LS.a)     || "my",
+  langB: localStorage.getItem(LS.b)     || "th"
+};
+function langById(id){ return LANGS.find(l => l.id === id) || LANGS[0]; }
+function savePair(){ localStorage.setItem(LS.a, state.langA); localStorage.setItem(LS.b, state.langB); }
+
+/* Script-based detection, used only to label transcript bubbles */
+const SCRIPTS = [
+  [/[\u1000-\u109F]/, ["my"]],
+  [/[\u0E00-\u0E7F]/, ["th"]],
+  [/[\u0E80-\u0EFF]/, ["lo"]],
+  [/[\u1780-\u17FF]/, ["km"]],
+  [/[\uAC00-\uD7A3]/, ["ko"]],
+  [/[\u3040-\u30FF]/, ["ja"]],
+  [/[\u0400-\u04FF]/, ["ru","uk"]],
+  [/[\u0600-\u06FF]/, ["ar","fa","ur"]],
+  [/[\u0900-\u097F]/, ["hi","ne"]],
+  [/[\u0980-\u09FF]/, ["bn"]],
+  [/[\u0B80-\u0BFF]/, ["ta"]],
+  [/[\u0C00-\u0C7F]/, ["te"]],
+  [/[\u0D80-\u0DFF]/, ["si"]],
+  [/[\u4E00-\u9FFF]/, ["zh","yue","ja"]]
+];
+function detectInPair(text){
+  if(!text) return null;
+  for(const pair of SCRIPTS){
+    if(pair[0].test(text)){
+      for(const id of pair[1]){ if(id === state.langA || id === state.langB) return id; }
+      return null;
+    }
+  }
+  return null;
+}
+
+/* ============ DOM ============ */
+const $ = id => document.getElementById(id);
+const overlay = $("overlay"), errorBar = $("errorBar");
+const statusLine = $("statusLine"), statusText = $("statusText"), partialLine = $("partialLine");
+const transcriptEl = $("transcript"), emptyNote = $("emptyNote");
+const micBtn = $("micBtn"), micLabel = $("micLabel"), micHint = $("micHint");
+const langSheet = $("langSheet"), voiceSheet = $("voiceSheet"), settingsSheet = $("settingsSheet");
+
+function showError(msg){
+  errorBar.textContent = "⚠ " + msg;
+  errorBar.classList.add("show");
+}
+function clearError(){ errorBar.classList.remove("show"); errorBar.textContent = ""; }
+errorBar.addEventListener("click", clearError);
+
+function setStatus(mode, text){
+  statusLine.className = mode || "";
+  statusLine.id = "statusLine";
+  statusText.textContent = text;
+}
+
+/* ============ Sheets ============ */
+function anySheetOpen(){
+  return [langSheet, voiceSheet, settingsSheet].some(s => s.classList.contains("show"));
+}
+function openSheet(el){
+  el.classList.add("show"); el.setAttribute("aria-hidden","false");
+  overlay.classList.add("show"); document.body.classList.add("locked");
+}
+function closeSheet(el){
+  el.classList.remove("show"); el.setAttribute("aria-hidden","true");
+  if(!anySheetOpen()){ overlay.classList.remove("show"); document.body.classList.remove("locked"); }
+}
+function closeAllSheets(){
+  [langSheet, voiceSheet, settingsSheet].forEach(s => { s.classList.remove("show"); s.setAttribute("aria-hidden","true"); });
+  overlay.classList.remove("show"); document.body.classList.remove("locked");
+}
+overlay.addEventListener("click", closeAllSheets);
+
+/* ============ Pair UI ============ */
+function refreshPairUI(){
+  const A = langById(state.langA), B = langById(state.langB);
+  $("langAName").textContent = A.my; $("langAEn").textContent = A.en;
+  $("langBName").textContent = B.my; $("langBEn").textContent = B.en;
+}
+let pickTarget = "A";
+function buildLangList(){
+  const list = $("langList"); list.innerHTML = "";
+  LANGS.forEach(l => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "row";
+    const cur = (pickTarget === "A" ? state.langA : state.langB) === l.id;
+    if(cur) b.classList.add("sel");
+    b.innerHTML = '<span class="tick">' + (cur ? "✓" : "") + '</span><span></span><span class="en"></span>';
+    b.children[1].textContent = l.my;
+    b.children[2].textContent = l.en;
+    b.addEventListener("click", () => { pickLanguage(l.id); });
+    list.appendChild(b);
+  });
+}
+function openLangSheet(target){
+  pickTarget = target;
+  $("langSheetTitle").textContent = target === "A" ? "ဘာသာ A ရွေးပါ" : "ဘာသာ B ရွေးပါ";
+  buildLangList();
+  openSheet(langSheet);
+}
+function pickLanguage(id){
+  if(pickTarget === "A"){
+    if(id === state.langB) state.langB = state.langA;
+    state.langA = id;
+  }else{
+    if(id === state.langA) state.langA = state.langB;
+    state.langB = id;
+  }
+  savePair(); refreshPairUI(); closeSheet(langSheet);
+  onPairChanged();
+}
+$("langABtn").addEventListener("click", () => openLangSheet("A"));
+$("langBBtn").addEventListener("click", () => openLangSheet("B"));
+$("langClose").addEventListener("click", () => closeSheet(langSheet));
+$("swapBtn").addEventListener("click", () => {
+  const t = state.langA; state.langA = state.langB; state.langB = t;
+  savePair(); refreshPairUI(); onPairChanged();
+});
+function onPairChanged(){
+  if(sessionActive){ restartSession(); }
+}
+
+/* ============ Voice UI ============ */
+function buildVoiceList(){
+  const list = $("voiceList"); list.innerHTML = "";
+  VOICES.forEach(v => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "row" + (state.voice === v ? " sel" : "");
+    b.innerHTML = '<span class="tick">' + (state.voice === v ? "✓" : "") + '</span><span></span>';
+    b.children[1].textContent = v;
+    b.addEventListener("click", () => {
+      state.voice = v; localStorage.setItem(LS.voice, v);
+      $("voicePickBtn").textContent = v;
+      buildVoiceList(); closeSheet(voiceSheet);
+      if(sessionActive) restartSession();
+    });
+    list.appendChild(b);
+  });
+}
+$("voicePickBtn").addEventListener("click", () => { buildVoiceList(); voiceSheet.style.zIndex = 60; openSheet(voiceSheet); });
+$("voiceClose").addEventListener("click", () => closeSheet(voiceSheet));
+
+/* ============ Settings ============ */
+function openSettings(){
+  $("keyInput").value = state.key;
+  $("keyInput").classList.remove("missing");
+  $("modelInput").value = state.model;
+  $("voicePickBtn").textContent = state.voice;
+  openSheet(settingsSheet);
+}
+$("settingsBtn").addEventListener("click", openSettings);
+$("settingsClose").addEventListener("click", () => closeSheet(settingsSheet));
+$("saveSettingsBtn").addEventListener("click", () => {
+  const newKey = $("keyInput").value.trim();
+  const newModel = $("modelInput").value.trim() || DEFAULT_MODEL;
+  const changed = newKey !== state.key || newModel !== state.model;
+  state.key = newKey; state.model = newModel;
+  if(newKey) localStorage.setItem(LS.key, newKey); else localStorage.removeItem(LS.key);
+  localStorage.setItem(LS.model, newModel);
+  refreshHint(); closeSheet(settingsSheet);
+  if(changed && sessionActive) restartSession();
+});
+$("resetBtn").addEventListener("click", () => {
+  Object.keys(LS).forEach(k => localStorage.removeItem(LS[k]));
+  state.key = ""; state.voice = "Kore"; state.model = DEFAULT_MODEL; state.langA = "my"; state.langB = "th";
+  savePair();
+  $("keyInput").value = ""; $("modelInput").value = DEFAULT_MODEL; $("voicePickBtn").textContent = "Kore";
+  refreshPairUI(); refreshHint();
+  if(sessionActive) stopSession();
+  setStatus("", "အသင့်အနေအထား — ဆက်တင် ပြန်စီပြီး");
+});
+function refreshHint(){
+  micHint.textContent = state.key
+    ? "မိုက်ကို နှိပ်ပြီး ပြောပါ — နှစ်ဘာသာ အပြန်အလှန် ပြန်ပေးမယ်"
+    : "စတင်ရန် Gemini API key လိုပါတယ် — ဆက်တင်မှာ ထည့်ပါ";
+}
+</script>
+
+<script>
+"use strict";
+/* ============ Live session ============ */
+const WS_BASE = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
+let ws = null;
+let sessionActive = false;   // user wants session running
+let sessionReady = false;    // setupComplete received + mic live
+let userStop = false;
+let micCtx = null, micStream = null, micSource = null, procNode = null, muteGain = null, analyser = null;
+let playCtx = null, nextPlayTime = 0;
+const liveSources = new Set();
+let curIn = "", curOut = "";
+let waveRAF = 0;
+const waveCanvas = $("wave");
+
+function buildInstruction(){
+  const A = langById(state.langA).en, B = langById(state.langB).en;
+  return "You are a professional simultaneous interpreter between " + A + " and " + B + ". " +
+    "Your ONLY job is to translate speech between these two languages. " +
+    "When you hear " + A + ", immediately speak its translation in " + B + ". " +
+    "When you hear " + B + ", immediately speak its translation in " + A + ". " +
+    "Speak ONLY the translation: never greet, never comment, never explain, never answer questions yourself, " +
+    "and never add anything of your own. Translate questions as questions and statements as statements, " +
+    "keeping the speaker's meaning, tone and level of formality. " +
+    "If a phrase is unclear, translate as much of it as you can instead of staying silent or apologizing.";
+}
+
+/* ---- audio helpers ---- */
+function downsampleTo16k(buf, inRate){
+  if(inRate === 16000) return buf;
+  const ratio = inRate / 16000, outLen = Math.floor(buf.length / ratio);
+  const out = new Float32Array(outLen);
+  for(let i = 0; i < outLen; i++) out[i] = buf[Math.floor(i * ratio)];
+  return out;
+}
+function bytesToBase64(bytes){
+  let bin = ""; const CH = 0x8000;
+  for(let i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+  return btoa(bin);
+}
+function base64ToBytes(b64){
+  const bin = atob(b64), out = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/* ---- playback (24 kHz PCM from the model) ---- */
+function ensurePlayCtx(){
+  if(!playCtx) playCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if(playCtx.state === "suspended") playCtx.resume();
+}
+function enqueueAudio(b64){
+  try{
+    ensurePlayCtx();
+    const bytes = base64ToBytes(b64);
+    const n = Math.floor(bytes.length / 2);
+    if(n === 0) return;
+    const view = new DataView(bytes.buffer, bytes.byteOffset, n * 2);
+    const floats = new Float32Array(n);
+    for(let i = 0; i < n; i++) floats[i] = view.getInt16(i * 2, true) / 32768;
+    const buf = playCtx.createBuffer(1, n, 24000);
+    buf.copyToChannel(floats, 0);
+    const src = playCtx.createBufferSource();
+    src.buffer = buf; src.connect(playCtx.destination);
+    const now = playCtx.currentTime;
+    if(nextPlayTime < now) nextPlayTime = now + 0.03;
+    src.start(nextPlayTime);
+    nextPlayTime += buf.duration;
+    liveSources.add(src);
+    src.onended = () => liveSources.delete(src);
+  }catch(e){ /* a bad chunk must not kill the session */ }
+}
+function flushPlayback(){
+  liveSources.forEach(s => { try{ s.stop(); }catch(_){} });
+  liveSources.clear();
+  if(playCtx) nextPlayTime = playCtx.currentTime;
+}
+
+/* ---- mic capture (16 kHz PCM16 out) ---- */
+async function startMic(){
+  micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+  micCtx = new (window.AudioContext || window.webkitAudioContext)();
+  micSource = micCtx.createMediaStreamSource(micStream);
+  analyser = micCtx.createAnalyser(); analyser.fftSize = 256;
+  micSource.connect(analyser);
+  procNode = micCtx.createScriptProcessor(4096, 1, 1);
+  muteGain = micCtx.createGain(); muteGain.gain.value = 0;
+  micSource.connect(procNode); procNode.connect(muteGain); muteGain.connect(micCtx.destination);
+  procNode.onaudioprocess = e => {
+    if(!sessionReady || !ws || ws.readyState !== 1) return;
+    const data = e.inputBuffer.getChannelData(0);
+    const ds = downsampleTo16k(data, micCtx.sampleRate);
+    const pcm = new Int16Array(ds.length);
+    for(let i = 0; i < ds.length; i++){
+      const s = Math.max(-1, Math.min(1, ds[i]));
+      pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    const b64 = bytesToBase64(new Uint8Array(pcm.buffer));
+    try{
+      ws.send(JSON.stringify({ realtimeInput: { mediaChunks: [{ mimeType: "audio/pcm;rate=16000", data: b64 }] } }));
+    }catch(_){}
+  };
+}
+function stopMic(){
+  if(procNode){ try{ procNode.disconnect(); }catch(_){} procNode.onaudioprocess = null; procNode = null; }
+  if(micSource){ try{ micSource.disconnect(); }catch(_){} micSource = null; }
+  if(muteGain){ try{ muteGain.disconnect(); }catch(_){} muteGain = null; }
+  analyser = null;
+  if(micStream){ micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if(micCtx){ try{ micCtx.close(); }catch(_){} micCtx = null; }
+}
+
+/* ---- transcript ---- */
+function appendTurn(heard, spoken){
+  if(emptyNote) emptyNote.style.display = "none";
+  const heardId = detectInPair(heard);
+  const A = langById(state.langA), B = langById(state.langB);
+  const pairLabel = A.my + " / " + B.my;
+  const heardLabel = heardId ? langById(heardId).my + " — ကြားရတာ" : pairLabel + " — ကြားရတာ";
+  const spokenLabel = heardId
+    ? (heardId === state.langA ? B : A).my + " — ဘာသာပြန်"
+    : pairLabel + " — ဘာသာပြန်";
+  const turn = document.createElement("div"); turn.className = "turn";
+  if(heard){
+    const b = document.createElement("div"); b.className = "bubble heard";
+    const lab = document.createElement("div"); lab.className = "lab"; lab.textContent = heardLabel;
+    const txt = document.createElement("div"); txt.className = "txt"; txt.textContent = heard;
+    b.appendChild(lab); b.appendChild(txt); turn.appendChild(b);
+  }
+  if(spoken){
+    const b = document.createElement("div"); b.className = "bubble spoken";
+    const lab = document.createElement("div"); lab.className = "lab"; lab.textContent = spokenLabel;
+    const txt = document.createElement("div"); txt.className = "txt"; txt.textContent = spoken;
+    b.appendChild(lab); b.appendChild(txt); turn.appendChild(b);
+  }
+  transcriptEl.appendChild(turn);
+  transcriptEl.scrollTop = transcriptEl.scrollHeight;
+}
+function updatePartial(){
+  const t = curOut ? "🔊 " + curOut : (curIn ? "🎙 " + curIn : "");
+  partialLine.textContent = t.length > 90 ? "…" + t.slice(-90) : t;
+}
+function finalizeTurn(){
+  const heard = curIn.trim(), spoken = curOut.trim();
+  curIn = ""; curOut = ""; partialLine.textContent = "";
+  if(heard || spoken) appendTurn(heard, spoken);
+}
+
+/* ---- waveform ---- */
+function roundRectPath(ctx, x, y, w, h, r){
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function drawWave(){
+  const ctx = waveCanvas.getContext("2d");
+  const W = waveCanvas.width, H = waveCanvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const bars = 36, bw = W / bars;
+  let data = null;
+  if(analyser){ data = new Uint8Array(analyser.frequencyBinCount); analyser.getByteFrequencyData(data); }
+  for(let i = 0; i < bars; i++){
+    let v = 0.07;
+    if(data){ const idx = Math.floor(i / bars * data.length * 0.7); v = Math.max(0.06, data[idx] / 255); }
+    const h = v * (H - 10);
+    const grad = ctx.createLinearGradient(0, H / 2 - h / 2, 0, H / 2 + h / 2);
+    grad.addColorStop(0, "rgba(242,245,249,0.95)");
+    grad.addColorStop(1, "rgba(150,158,170,0.5)");
+    ctx.fillStyle = grad;
+    roundRectPath(ctx, i * bw + bw * 0.22, H / 2 - h / 2, bw * 0.56, h, 3);
+    ctx.fill();
+  }
+  if(sessionActive) waveRAF = requestAnimationFrame(drawWave);
+}
+
+/* ---- session control ---- */
+function setMicUI(mode){
+  micBtn.classList.toggle("live", mode === "live");
+  micBtn.classList.toggle("busy", mode === "busy");
+  micBtn.textContent = mode === "live" ? "⏹" : "🎤";
+  micLabel.textContent = mode === "live" ? "ရပ်" : (mode === "busy" ? "ချိတ်နေသည်…" : "စတင်");
+}
+function startSession(){
+  clearError();
+  if(!state.key){
+    showError("Gemini API key မရှိသေးပါ။ ဆက်တင်မှာ ကိုယ့် Gemini API key ထည့်ပြီးမှ စတင်နိုင်ပါမယ်။");
+    openSettings();
+    const ki = $("keyInput");
+    ki.classList.add("missing"); ki.focus();
+    return;
+  }
+  userStop = false; sessionActive = true; sessionReady = false;
+  curIn = ""; curOut = ""; partialLine.textContent = "";
+  setMicUI("busy"); setStatus("busy", "ချိတ်နေသည်…");
+  ensurePlayCtx(); flushPlayback();
+
+  const url = WS_BASE + "?key=" + encodeURIComponent(state.key);
+  try{ ws = new WebSocket(url); }
+  catch(e){ showError("WebSocket မဖွင့်နိုင်ပါ: " + (e && e.message ? e.message : e)); teardownSession(); return; }
+
+  ws.onopen = () => {
+    const setupMsg = {
+      setup: {
+        model: "models/" + (state.model || DEFAULT_MODEL),
+        generationConfig: {
+          responseModalities: ["AUDIO"],
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: state.voice } } }
+        },
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+        systemInstruction: { parts: [{ text: buildInstruction() }] }
+      }
+    };
+    try{ ws.send(JSON.stringify(setupMsg)); }
+    catch(e){ showError("Setup ပို့မရပါ: " + (e && e.message ? e.message : e)); }
+  };
+
+  ws.onmessage = async ev => {
+    let raw = ev.data;
+    try{
+      if(raw instanceof Blob) raw = await raw.text();
+      const msg = JSON.parse(raw);
+
+      if(msg.error){
+        const m = msg.error.message || JSON.stringify(msg.error);
+        showError("Server အမှား: " + m);
+        return;
+      }
+      if(msg.setupComplete){
+        try{
+          await startMic();
+          sessionReady = true;
+          setMicUI("live"); setStatus("live", "ချိတ်ဆက်ပြီး — ပြောပါ");
+          drawWave();
+        }catch(err){
+          showError("မိုက် ဖွင့်မရပါ: " + (err && err.name ? err.name + " — " : "") + (err && err.message ? err.message : err) + " (မိုက် ခွင့်ပြုချက် ပေးထားရဲ့လား စစ်ပါ)");
+          userStop = true;
+          try{ ws.close(); }catch(_){}
+          teardownSession();
+        }
+        return;
+      }
+      if(msg.goAway){
+        showError("Server က ဒီ session ကို မကြာခင် ပိတ်ပါမယ်။ ရပ်သွားရင် ပြန်စပါ။");
+        return;
+      }
+      const sc = msg.serverContent;
+      if(sc){
+        if(sc.interrupted) flushPlayback();
+        if(sc.inputTranscription && sc.inputTranscription.text){ curIn += sc.inputTranscription.text; updatePartial(); }
+        if(sc.outputTranscription && sc.outputTranscription.text){ curOut += sc.outputTranscription.text; updatePartial(); }
+        const parts = (sc.modelTurn && sc.modelTurn.parts) || [];
+        for(const p of parts){
+          if(p && p.inlineData && p.inlineData.data) enqueueAudio(p.inlineData.data);
+        }
+        if(sc.turnComplete) finalizeTurn();
+      }
+    }catch(e){ /* ignore unparsable frames */ }
+  };
+
+  ws.onerror = () => {
+    if(sessionActive && !userStop) showError("WebSocket အမှား — ချိတ်ဆက်မှု မအောင်မြင်ပါ။ API key နဲ့ အင်တာနက် ပြန်စစ်ပါ။");
+  };
+  ws.onclose = ev => {
+    const wasActive = sessionActive;
+    teardownSession();
+    if(wasActive && !userStop){
+      showError("ချိတ်ဆက်မှု ပြတ်သွားသည် (code " + ev.code + ")။ ပြန်စရန် မိုက်ကို ထပ်နှိပ်ပါ။");
+      setStatus("", "ပြတ်သွားသည်");
+    }
+  };
+}
+function teardownSession(){
+  sessionActive = false; sessionReady = false;
+  stopMic(); flushPlayback();
+  cancelAnimationFrame(waveRAF);
+  if(ws){ try{ ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null; if(ws.readyState < 2) ws.close(); }catch(_){} ws = null; }
+  setMicUI("idle");
+  drawWaveIdle();
+}
+function stopSession(){
+  userStop = true;
+  finalizeTurn();
+  teardownSession();
+  setStatus("", "ရပ်ထားသည်");
+}
+function restartSession(){
+  if(!sessionActive) return;
+  userStop = true;           // suppress the close-error for the old socket
+  teardownSession();
+  userStop = false;
+  startSession();
+}
+function drawWaveIdle(){
+  const wasActive = sessionActive; sessionActive = false;
+  drawWave(); sessionActive = wasActive;
+}
+micBtn.addEventListener("click", () => {
+  if(sessionActive) stopSession(); else startSession();
+});
+
+/* ============ Init ============ */
+refreshPairUI();
+refreshHint();
+$("voicePickBtn").textContent = state.voice;
+drawWaveIdle();
+</script>
+</body>
+</html>
