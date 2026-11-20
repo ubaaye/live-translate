@@ -72,6 +72,18 @@
   }
   #errorBar.show{ display:block; }
 
+  .modebar{
+    display:flex; margin:2px 14px 8px; border-radius:12px; overflow:hidden;
+    border:1px solid var(--stroke); background:var(--glass);
+    backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.10);
+  }
+  .modebar button{
+    flex:1 1 0; padding:9px 0; background:transparent; border:0; color:var(--ink-dim);
+    font-size:13px; font-weight:700; cursor:pointer; font-family:inherit;
+  }
+  .modebar button.sel{ background:var(--glass-strong); color:var(--ink); }
+
   .pairbar{
     display:flex; align-items:stretch; gap:8px; margin:2px 14px 10px;
   }
@@ -215,7 +227,12 @@
 
 <div id="errorBar" role="alert"></div>
 
-<div class="pairbar">
+<div class="modebar">
+  <button id="modePairBtn" type="button" class="sel">အတွဲ ရွေး</button>
+  <button id="modeAutoBtn" type="button">အလိုအလျောက်</button>
+</div>
+
+<div class="pairbar" id="pairBar">
   <button class="lang-btn" id="langABtn" type="button">
     <span class="cap">ဘာသာ A</span>
     <span class="nm" id="langAName">မြန်မာ</span>
@@ -226,6 +243,14 @@
     <span class="cap">ဘာသာ B</span>
     <span class="nm" id="langBName">ထိုင်း</span>
     <span class="en" id="langBEn">Thai</span>
+  </button>
+</div>
+
+<div class="pairbar" id="autoBar" style="display:none">
+  <button class="lang-btn" id="targetBtn" type="button">
+    <span class="cap">ဘာသာပြန်မည့် ဘာသာ</span>
+    <span class="nm" id="targetName">မြန်မာ</span>
+    <span class="en" id="targetEn">Burmese</span>
   </button>
 </div>
 
@@ -253,7 +278,7 @@
 <div class="sheet" id="langSheet" aria-hidden="true">
   <div class="grab"></div>
   <h2 id="langSheetTitle">ဘာသာ ရွေးပါ</h2>
-  <p class="sub">ပြောသမျှကို ဒီဘာသာနှစ်ခုကြား အပြန်အလှန် ပြန်ပေးမယ်။</p>
+  <p class="sub" id="langSheetSub">ပြောသမျှကို ဒီဘာသာနှစ်ခုကြား အပြန်အလှန် ပြန်ပေးမယ်။</p>
   <div class="list" id="langList"></div>
   <div class="btnrow"><button class="btn" id="langClose" type="button">ပိတ်</button></div>
 </div>
@@ -331,14 +356,16 @@ const LANGS = [
 ];
 const VOICES = ["Kore","Aoede","Charon","Fenrir","Puck"];
 const DEFAULT_MODEL = "gemini-3.8-live";
-const LS = { key:"nloLT.key", voice:"nloLT.voice", model:"nloLT.model", a:"nloLT.langA", b:"nloLT.langB" };
+const LS = { key:"nloLT.key", voice:"nloLT.voice", model:"nloLT.model", a:"nloLT.langA", b:"nloLT.langB", mode:"nloLT.mode", target:"nloLT.target" };
 
 const state = {
   key:   localStorage.getItem(LS.key)   || "",
   voice: localStorage.getItem(LS.voice) || "Kore",
   model: localStorage.getItem(LS.model) || DEFAULT_MODEL,
   langA: localStorage.getItem(LS.a)     || "my",
-  langB: localStorage.getItem(LS.b)     || "th"
+  langB: localStorage.getItem(LS.b)     || "th",
+  mode:  localStorage.getItem(LS.mode)  || "pair",
+  target: localStorage.getItem(LS.target) || "my"
 };
 function langById(id){ return LANGS.find(l => l.id === id) || LANGS[0]; }
 function savePair(){ localStorage.setItem(LS.a, state.langA); localStorage.setItem(LS.b, state.langB); }
@@ -416,13 +443,36 @@ function refreshPairUI(){
   $("langAName").textContent = A.my; $("langAEn").textContent = A.en;
   $("langBName").textContent = B.my; $("langBEn").textContent = B.en;
 }
+function refreshTargetUI(){
+  const T = langById(state.target);
+  $("targetName").textContent = T.my; $("targetEn").textContent = T.en;
+}
+function refreshModeUI(){
+  const auto = state.mode === "auto";
+  $("modePairBtn").classList.toggle("sel", !auto);
+  $("modeAutoBtn").classList.toggle("sel", auto);
+  $("pairBar").style.display = auto ? "none" : "flex";
+  $("autoBar").style.display = auto ? "flex" : "none";
+  emptyNote.innerHTML = auto
+    ? "ဘာသာပြန်မည့် ဘာသာကို ရွေးပြီး မိုက် ခလုတ်ကို နှိပ်ပါ။<br>ဘယ်ဘာသာနဲ့ ပြောပြော ရွေးထားတဲ့ ဘာသာနဲ့ ချက်ချင်း ပြန်ပြောပေးမယ်။"
+    : "ဘာသာနှစ်ခုကို ရွေးပြီး မိုက် ခလုတ်ကို နှိပ်ပါ။<br>ဘယ်ဘက်ကပြောပြော နောက်ဘာသာနဲ့ ချက်ချင်း ပြန်ပြောပေးမယ်။";
+}
+function setMode(m){
+  state.mode = m;
+  localStorage.setItem(LS.mode, m);
+  refreshModeUI();
+  if(sessionActive) restartSession();
+}
+$("modePairBtn").addEventListener("click", () => setMode("pair"));
+$("modeAutoBtn").addEventListener("click", () => setMode("auto"));
+$("targetBtn").addEventListener("click", () => openLangSheet("T"));
 let pickTarget = "A";
 function buildLangList(){
   const list = $("langList"); list.innerHTML = "";
   LANGS.forEach(l => {
     const b = document.createElement("button");
     b.type = "button"; b.className = "row";
-    const cur = (pickTarget === "A" ? state.langA : state.langB) === l.id;
+    const cur = (pickTarget === "A" ? state.langA : (pickTarget === "B" ? state.langB : state.target)) === l.id;
     if(cur) b.classList.add("sel");
     b.innerHTML = '<span class="tick">' + (cur ? "✓" : "") + '</span><span></span><span class="en"></span>';
     b.children[1].textContent = l.my;
@@ -433,11 +483,21 @@ function buildLangList(){
 }
 function openLangSheet(target){
   pickTarget = target;
-  $("langSheetTitle").textContent = target === "A" ? "ဘာသာ A ရွေးပါ" : "ဘာသာ B ရွေးပါ";
+  $("langSheetTitle").textContent = target === "A" ? "ဘာသာ A ရွေးပါ" : (target === "B" ? "ဘာသာ B ရွေးပါ" : "ဘာသာပြန်မည့် ဘာသာ ရွေးပါ");
+  $("langSheetSub").textContent = target === "T"
+    ? "ဘယ်ဘာသာနဲ့ ပြောပြော ဒီဘာသာနဲ့ ပြန်ပေးမယ်။"
+    : "ပြောသမျှကို ဒီဘာသာနှစ်ခုကြား အပြန်အလှန် ပြန်ပေးမယ်။";
   buildLangList();
   openSheet(langSheet);
 }
 function pickLanguage(id){
+  if(pickTarget === "T"){
+    state.target = id;
+    localStorage.setItem(LS.target, id);
+    refreshTargetUI(); closeSheet(langSheet);
+    if(sessionActive) restartSession();
+    return;
+  }
   if(pickTarget === "A"){
     if(id === state.langB) state.langB = state.langA;
     state.langA = id;
@@ -502,9 +562,10 @@ $("saveSettingsBtn").addEventListener("click", () => {
 $("resetBtn").addEventListener("click", () => {
   Object.keys(LS).forEach(k => localStorage.removeItem(LS[k]));
   state.key = ""; state.voice = "Kore"; state.model = DEFAULT_MODEL; state.langA = "my"; state.langB = "th";
+  state.mode = "pair"; state.target = "my";
   savePair();
   $("keyInput").value = ""; $("modelInput").value = DEFAULT_MODEL; $("voicePickBtn").textContent = "Kore";
-  refreshPairUI(); refreshHint();
+  refreshPairUI(); refreshTargetUI(); refreshModeUI(); refreshHint();
   if(sessionActive) stopSession();
   setStatus("", "အသင့်အနေအထား — ဆက်တင် ပြန်စီပြီး");
 });
@@ -536,9 +597,39 @@ let reconnecting = false;      // an auto-reconnect is in flight
 let freshFallbackUsed = false; // the one fresh-session fallback was already tried
 let lastError = "";            // last server error text, shown if reconnect gives up
 let audioSeen = false;         // first model audio chunk of this session arrived (diagnostic)
+let wakeLock = null;           // screen wake lock held while a session is live
 const waveCanvas = $("wave");
 
+/* ---- wake lock: keep the screen on mid-conversation ---- */
+async function requestWakeLock(){
+  try{
+    if(!("wakeLock" in navigator) || wakeLock) return;
+    const wl = await navigator.wakeLock.request("screen");
+    wakeLock = wl;
+    wl.addEventListener("release", () => { if(wakeLock === wl) wakeLock = null; });
+  }catch(_){ wakeLock = null; }
+}
+function releaseWakeLock(){
+  const wl = wakeLock; wakeLock = null;
+  if(wl){ try{ wl.release(); }catch(_){} }
+}
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "visible" && sessionActive) requestWakeLock();
+});
+
 function buildInstruction(){
+  if(state.mode === "auto"){
+    const T = langById(state.target).en;
+    const S = state.target === "en" ? "Burmese" : "English";
+    return "You are a professional simultaneous interpreter. " +
+      "Your ONLY job is to translate speech into " + T + ". " +
+      "Detect ANY language the speaker uses and immediately speak its translation in " + T + ". " +
+      "If the speaker speaks " + T + " itself, translate it into " + S + " instead. " +
+      "Speak ONLY the translation: never greet, never comment, never explain, never answer questions yourself, " +
+      "and never add anything of your own. Translate questions as questions and statements as statements, " +
+      "keeping the speaker's meaning, tone and level of formality. " +
+      "If a phrase is unclear, translate as much of it as you can instead of staying silent or apologizing.";
+  }
   const A = langById(state.langA).en, B = langById(state.langB).en;
   return "You are a professional simultaneous interpreter between " + A + " and " + B + ". " +
     "Your ONLY job is to translate speech between these two languages. " +
@@ -594,7 +685,7 @@ function enqueueAudio(b64){
     const src = playCtx.createBufferSource();
     src.buffer = buf; src.connect(playCtx.destination);
     const now = playCtx.currentTime;
-    if(nextPlayTime < now) nextPlayTime = now + 0.03;
+    nextPlayTime = Math.max(nextPlayTime, now + 0.02);
     src.start(nextPlayTime);
     nextPlayTime += buf.duration;
     liveSources.add(src);
@@ -614,7 +705,7 @@ async function startMic(){
   micSource = micCtx.createMediaStreamSource(micStream);
   analyser = micCtx.createAnalyser(); analyser.fftSize = 256;
   micSource.connect(analyser);
-  procNode = micCtx.createScriptProcessor(4096, 1, 1);
+  procNode = micCtx.createScriptProcessor(2048, 1, 1);
   muteGain = micCtx.createGain(); muteGain.gain.value = 0;
   micSource.connect(procNode); procNode.connect(muteGain); muteGain.connect(micCtx.destination);
   procNode.onaudioprocess = e => {
@@ -644,13 +735,19 @@ function stopMic(){
 /* ---- transcript ---- */
 function appendTurn(heard, spoken){
   if(emptyNote) emptyNote.style.display = "none";
-  const heardId = detectInPair(heard);
-  const A = langById(state.langA), B = langById(state.langB);
-  const pairLabel = A.my + " / " + B.my;
-  const heardLabel = heardId ? langById(heardId).my + " — ကြားရတာ" : pairLabel + " — ကြားရတာ";
-  const spokenLabel = heardId
-    ? (heardId === state.langA ? B : A).my + " — ဘာသာပြန်"
-    : pairLabel + " — ဘာသာပြန်";
+  let heardLabel, spokenLabel;
+  if(state.mode === "auto"){
+    heardLabel = "ကြားရတာ";
+    spokenLabel = "ဘာသာပြန်";
+  }else{
+    const heardId = detectInPair(heard);
+    const A = langById(state.langA), B = langById(state.langB);
+    const pairLabel = A.my + " / " + B.my;
+    heardLabel = heardId ? langById(heardId).my + " — ကြားရတာ" : pairLabel + " — ကြားရတာ";
+    spokenLabel = heardId
+      ? (heardId === state.langA ? B : A).my + " — ဘာသာပြန်"
+      : pairLabel + " — ဘာသာပြန်";
+  }
   const turn = document.createElement("div"); turn.className = "turn";
   if(heard){
     const b = document.createElement("div"); b.className = "bubble heard";
@@ -756,6 +853,15 @@ function openSocket(){
         },
         inputAudioTranscription: {},
         outputAudioTranscription: {},
+        realtimeInputConfig: {
+          automaticActivityDetection: {
+            disabled: false,
+            startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
+            endOfSpeechSensitivity: "END_SENSITIVITY_HIGH",
+            prefixPaddingMs: 100,
+            silenceDurationMs: 600
+          }
+        },
         contextWindowCompression: { slidingWindow: {} },
         sessionResumption: usedHandle ? { handle: usedHandle } : {},
         systemInstruction: { parts: [{ text: buildInstruction() }] }
@@ -784,6 +890,7 @@ function openSocket(){
         try{
           if(!micStream) await startMic();
           sessionReady = true;
+          requestWakeLock();
           setMicUI("live"); setStatus("live", "ချိတ်ဆက်ပြီး — ပြောပါ");
           if(!waveRunning) drawWave();
         }catch(err){
@@ -865,6 +972,7 @@ function scheduleReconnect(){
 }
 function teardownSession(){
   sessionActive = false; sessionReady = false; reconnecting = false;
+  releaseWakeLock();
   if(reconnectTimer){ clearTimeout(reconnectTimer); reconnectTimer = 0; }
   stopMic(); flushPlayback();
   cancelAnimationFrame(waveRAF); waveRunning = false;
@@ -896,6 +1004,8 @@ micBtn.addEventListener("click", () => {
 
 /* ============ Init ============ */
 refreshPairUI();
+refreshTargetUI();
+refreshModeUI();
 refreshHint();
 $("voicePickBtn").textContent = state.voice;
 drawWaveIdle();
