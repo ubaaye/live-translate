@@ -528,6 +528,13 @@ let playCtx = null, nextPlayTime = 0;
 const liveSources = new Set();
 let curIn = "", curOut = "";
 let waveRAF = 0;
+let waveRunning = false;
+let resumeHandle = null;       // latest resumable handle from sessionResumptionUpdate
+let reconnectAttempts = 0;     // consecutive failed auto-reconnects
+let reconnectTimer = 0;        // pending auto-reconnect timeout id
+let reconnecting = false;      // an auto-reconnect is in flight
+let freshFallbackUsed = false; // the one fresh-session fallback was already tried
+let lastError = "";            // last server error text, shown if reconnect gives up
 const waveCanvas = $("wave");
 
 function buildInstruction(){
@@ -675,6 +682,7 @@ function roundRectPath(ctx, x, y, w, h, r){
   ctx.closePath();
 }
 function drawWave(){
+  waveRunning = true;
   const ctx = waveCanvas.getContext("2d");
   const W = waveCanvas.width, H = waveCanvas.height;
   ctx.clearRect(0, 0, W, H);
@@ -693,6 +701,7 @@ function drawWave(){
     ctx.fill();
   }
   if(sessionActive) waveRAF = requestAnimationFrame(drawWave);
+  else waveRunning = false;
 }
 
 /* ---- session control ---- */
@@ -712,15 +721,25 @@ function startSession(){
     return;
   }
   userStop = false; sessionActive = true; sessionReady = false;
+  resumeHandle = null; reconnectAttempts = 0; freshFallbackUsed = false; reconnecting = false; lastError = "";
   curIn = ""; curOut = ""; partialLine.textContent = "";
   setMicUI("busy"); setStatus("busy", "ချိတ်နေသည်…");
   ensurePlayCtx(); flushPlayback();
+  openSocket();
+}
 
+/* Open one WebSocket and wire its handlers. Used for the first connect and
+   for every auto-reconnect; resumption uses the stored handle when present. */
+function openSocket(){
   const url = WS_BASE + "?key=" + encodeURIComponent(state.key);
-  try{ ws = new WebSocket(url); }
+  let sock;
+  try{ sock = new WebSocket(url); }
   catch(e){ showError("WebSocket မဖွင့်နိုင်ပါ: " + (e && e.message ? e.message : e)); teardownSession(); return; }
+  ws = sock;
+  const usedHandle = resumeHandle;
+  let sockReady = false;
 
-  ws.onopen = () => {
+  sock.onopen = () => {
     const setupMsg = {
       setup: {
         model: "models/" + (state.model || DEFAULT_MODEL),
@@ -730,14 +749,16 @@ function startSession(){
         },
         inputAudioTranscription: {},
         outputAudioTranscription: {},
+        contextWindowCompression: { slidingWindow: {} },
+        sessionResumption: usedHandle ? { handle: usedHandle } : {},
         systemInstruction: { parts: [{ text: buildInstruction() }] }
       }
     };
-    try{ ws.send(JSON.stringify(setupMsg)); }
+    try{ sock.send(JSON.stringify(setupMsg)); }
     catch(e){ showError("Setup ပို့မရပါ: " + (e && e.message ? e.message : e)); }
   };
 
-  ws.onmessage = async ev => {
+  sock.onmessage = async ev => {
     let raw = ev.data;
     try{
       if(raw instanceof Blob) raw = await raw.text();
@@ -745,15 +766,18 @@ function startSession(){
 
       if(msg.error){
         const m = msg.error.message || JSON.stringify(msg.error);
-        showError("Server အမှား: " + m);
+        lastError = "Server အမှား: " + m;
+        if(!reconnecting) showError(lastError);
         return;
       }
       if(msg.setupComplete){
+        sockReady = true;
+        reconnectAttempts = 0; reconnecting = false; freshFallbackUsed = false;
         try{
-          await startMic();
+          if(!micStream) await startMic();
           sessionReady = true;
           setMicUI("live"); setStatus("live", "ချိတ်ဆက်ပြီး — ပြောပါ");
-          drawWave();
+          if(!waveRunning) drawWave();
         }catch(err){
           showError("မိုက် ဖွင့်မရပါ: " + (err && err.name ? err.name + " — " : "") + (err && err.message ? err.message : err) + " (မိုက် ခွင့်ပြုချက် ပေးထားရဲ့လား စစ်ပါ)");
           userStop = true;
@@ -762,8 +786,14 @@ function startSession(){
         }
         return;
       }
+      if(msg.sessionResumptionUpdate){
+        const u = msg.sessionResumptionUpdate;
+        if(u.resumable && u.newHandle) resumeHandle = u.newHandle;
+      }
       if(msg.goAway){
-        showError("Server က ဒီ session ကို မကြာခင် ပိတ်ပါမယ်။ ရပ်သွားရင် ပြန်စပါ။");
+        // Server is about to close this connection (~10 min limit):
+        // reconnect right away with the resumption handle.
+        if(sessionActive && !userStop) scheduleReconnect();
         return;
       }
       const sc = msg.serverContent;
@@ -780,28 +810,63 @@ function startSession(){
     }catch(e){ /* ignore unparsable frames */ }
   };
 
-  ws.onerror = () => {
-    if(sessionActive && !userStop) showError("WebSocket အမှား — ချိတ်ဆက်မှု မအောင်မြင်ပါ။ API key နဲ့ အင်တာနက် ပြန်စစ်ပါ။");
+  sock.onerror = () => {
+    if(sock !== ws) return;
+    if(sessionActive && !userStop && !reconnecting) showError("WebSocket အမှား — ချိတ်ဆက်မှု မအောင်မြင်ပါ။ API key နဲ့ အင်တာနက် ပြန်စစ်ပါ။");
   };
-  ws.onclose = ev => {
-    const wasActive = sessionActive;
-    teardownSession();
-    if(wasActive && !userStop){
-      showError("ချိတ်ဆက်မှု ပြတ်သွားသည် (code " + ev.code + ")။ ပြန်စရန် မိုက်ကို ထပ်နှိပ်ပါ။");
-      setStatus("", "ပြတ်သွားသည်");
+  sock.onclose = ev => {
+    if(sock !== ws) return;                 // a stale socket we already replaced
+    ws = null;
+    sessionReady = false;
+    if(!sessionActive || userStop) return;  // stopSession/teardown already handled it
+    // Unexpected close: keep the mic running and try to resume seamlessly.
+    finalizeTurn();
+    flushPlayback();
+    if(sockReady) reconnectAttempts = 0;    // that connection had been healthy
+    if(usedHandle && !sockReady && !freshFallbackUsed){
+      // The stored handle was rejected — drop it and retry once with a fresh session.
+      freshFallbackUsed = true;
+      resumeHandle = null;
     }
+    if(reconnectAttempts >= 5){
+      const why = lastError || ("ချိတ်ဆက်မှု ပြတ်သွားသည် (code " + ev.code + ")");
+      userStop = true;
+      teardownSession();
+      showError(why + " — ပြန်စရန် မိုက်ကို ထပ်နှိပ်ပါ။");
+      setStatus("", "ပြတ်သွားသည်");
+      return;
+    }
+    reconnectAttempts++;
+    scheduleReconnect();
   };
 }
+
+/* Reconnect after ~1s while the user still wants the session live. */
+function scheduleReconnect(){
+  if(!sessionActive || userStop) return;
+  if(reconnectTimer) return;
+  reconnecting = true;
+  setStatus("busy", "ပြန်ချိတ်နေသည်…");
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = 0;
+    if(!sessionActive || userStop) return;
+    // Detach + close the previous socket (e.g. still open after goAway) before replacing it.
+    if(ws){ const old = ws; ws = null; try{ old.onopen = old.onmessage = old.onerror = old.onclose = null; if(old.readyState < 2) old.close(); }catch(_){} }
+    openSocket();
+  }, 1000);
+}
 function teardownSession(){
-  sessionActive = false; sessionReady = false;
+  sessionActive = false; sessionReady = false; reconnecting = false;
+  if(reconnectTimer){ clearTimeout(reconnectTimer); reconnectTimer = 0; }
   stopMic(); flushPlayback();
-  cancelAnimationFrame(waveRAF);
+  cancelAnimationFrame(waveRAF); waveRunning = false;
   if(ws){ try{ ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null; if(ws.readyState < 2) ws.close(); }catch(_){} ws = null; }
   setMicUI("idle");
   drawWaveIdle();
 }
 function stopSession(){
   userStop = true;
+  resumeHandle = null; reconnectAttempts = 0; freshFallbackUsed = false;
   finalizeTurn();
   teardownSession();
   setStatus("", "ရပ်ထားသည်");
